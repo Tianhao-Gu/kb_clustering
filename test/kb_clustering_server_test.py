@@ -3,12 +3,17 @@ import os
 import time
 import unittest
 from configparser import ConfigParser
+import shutil
+import inspect
 
 from kb_clustering.kb_clusteringImpl import kb_clustering
 from kb_clustering.kb_clusteringServer import MethodContext
 from kb_clustering.authclient import KBaseAuth as _KBaseAuth
 
 from installed_clients.WorkspaceClient import Workspace
+from installed_clients.DataFileUtilClient import DataFileUtil
+from installed_clients.GenericsAPIClient import GenericsAPI
+from installed_clients.GenomeFileUtilClient import GenomeFileUtil
 
 
 class kb_clusteringTest(unittest.TestCase):
@@ -46,22 +51,118 @@ class kb_clusteringTest(unittest.TestCase):
         cls.wsName = "test_ContigFilter_" + str(suffix)
         ret = cls.wsClient.create_workspace({'workspace': cls.wsName})  # noqa
 
+        cls.gfu = GenomeFileUtil(cls.callback_url)
+        cls.dfu = DataFileUtil(cls.callback_url)
+        cls.gen_api = GenericsAPI(cls.callback_url, service_ver='dev')
+
+        cls.prepare_data()
+
     @classmethod
     def tearDownClass(cls):
         if hasattr(cls, 'wsName'):
             cls.wsClient.delete_workspace({'workspace': cls.wsName})
             print('Test workspace was deleted')
 
-    # NOTE: According to Python unittest naming rules test method names should start from 'test'. # noqa
-    def test_your_method(self):
-        # Prepare test objects in workspace if needed using
-        # self.getWsClient().save_objects({'workspace': self.getWsName(),
-        #                                  'objects': []})
-        #
-        # Run your method by
-        # ret = self.getImpl().your_method(self.getContext(), parameters...)
-        #
-        # Check returned data with
-        # self.assertEqual(ret[...], ...) or other unittest methods
-        ret = self.serviceImpl.run_kb_clustering(self.ctx, {'workspace_name': self.wsName,
-                                                             'parameter_1': 'Hello World!'})
+    def getImpl(self):
+        return self.__class__.serviceImpl
+
+    def getWsName(self):
+        return self.__class__.wsName
+
+    @classmethod
+    def prepare_data(cls):
+        # upload KBaseFeatureValues.ExpressionMatrix object
+        workspace_id = cls.dfu.ws_name_to_id(cls.wsName)
+        object_type = 'KBaseFeatureValues.ExpressionMatrix'
+        expression_matrix_object_name = 'test_expression_matrix'
+        expression_matrix_data = {'scale': 'log2',
+                                  'type': 'level',
+                                  'data': {'row_ids': ['gene_1', 'gene_2', 'gene_3'],
+                                           'col_ids': ['condition_1', 'condition_2',
+                                                       'condition_3', 'condition_4'],
+                                           'values': [[0.1, 0.2, 0.3, 0.4],
+                                                      [0.3, 0.4, 0.5, 0.6],
+                                                      [None, None, None, None]]
+                                           },
+                                  'feature_mapping': {},
+                                  'condition_mapping': {}}
+        save_object_params = {
+            'id': workspace_id,
+            'objects': [{'type': object_type,
+                         'data': expression_matrix_data,
+                         'name': expression_matrix_object_name}]
+        }
+
+        dfu_oi = cls.dfu.save_objects(save_object_params)[0]
+        cls.expression_matrix_ref = str(dfu_oi[6]) + '/' + str(dfu_oi[0]) + '/' + str(dfu_oi[4])
+
+        # upload KBaseMatrices.ExpressionMatrix object
+        matrix_file_name = 'test_import.xlsx'
+        matrix_file_path = os.path.join(cls.scratch, matrix_file_name)
+        shutil.copy(os.path.join('data', matrix_file_name), matrix_file_path)
+
+        obj_type = 'ExpressionMatrix'
+        params = {'obj_type': obj_type,
+                  'matrix_name': 'test_ExpressionMatrix',
+                  'workspace_name': cls.wsName,
+                  'input_file_path': matrix_file_path,
+                  'scale': 'raw'}
+        gen_api_ret = cls.gen_api.import_matrix_from_excel(params)
+
+        cls.matrix_obj_ref = gen_api_ret.get('matrix_obj_ref')
+
+    def fail_run_kmeans_cluster(self, params, error, exception=ValueError,
+                                contains=False):
+        with self.assertRaises(exception) as context:
+            self.getImpl().run_kmeans_cluster(self.ctx, params)
+        if contains:
+            self.assertIn(error, str(context.exception.args[0]))
+        else:
+            self.assertEqual(error, str(context.exception.args[0]))
+
+    def check_run_kmeans_cluster_output(self, ret):
+        self.assertTrue('cluster_set_refs' in ret)
+        self.assertTrue('report_name' in ret)
+        self.assertTrue('report_ref' in ret)
+
+    def start_test(self):
+        testname = inspect.stack()[1][3]
+        print(('\n*** starting test: ' + testname + ' **'))
+
+    def test_bad_run_kmeans_cluster_params(self):
+        self.start_test()
+        invalidate_params = {'missing_matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name',
+                             'k_num': 'k_num'}
+        error_msg = '"matrix_ref" parameter is required, but missing'
+        self.fail_run_kmeans_cluster(invalidate_params, error_msg)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name',
+                             'k_num': 'k_num',
+                             'dist_metric': 'invalidate_metric'}
+        error_msg = 'INPUT ERROR:\nInput metric function [invalidate_metric] is not valid.\n'
+        self.fail_run_kmeans_cluster(invalidate_params, error_msg, contains=True)
+
+    def test_run_kmeans_cluster(self):
+        self.start_test()
+
+        # test KBaseMatrices.ExpressionMatrix input
+        params = {'matrix_ref': self.matrix_obj_ref,
+                  'workspace_name': self.getWsName(),
+                  'cluster_set_name': 'test_kmeans_cluster',
+                  'k_num': 2,
+                  'dist_metric': 'euclidean'}
+        ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
+        self.check_run_kmeans_cluster_output(ret)
+
+        # test KBaseFeatureValues.ExpressionMatrix input
+        params = {'matrix_ref': self.expression_matrix_ref,
+                  'workspace_name': self.getWsName(),
+                  'cluster_set_name': 'test_kmeans_cluster',
+                  'k_num': 3,
+                  'dist_metric': 'cityblock'}
+        ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
+        self.check_run_kmeans_cluster_output(ret)

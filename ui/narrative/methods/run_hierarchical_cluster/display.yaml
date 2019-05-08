@@ -1,0 +1,65 @@
+#
+# Define basic display information
+#
+name     : Create Hierarchical Clustering for Matrix
+
+tooltip  : |
+    Create hierarchical clustering for Matrix object
+screenshots :
+    []
+
+icon: data-yellow.png
+
+#
+# Define the set of other narrative methods that should be suggested to the user.
+#
+method-suggestions :
+    related :
+        []
+    next :
+        []
+
+#
+# Configure the display and description of the parameters
+#
+parameters :
+  matrix_ref :
+    ui-name : |
+        Matrix Object
+    short-hint : |
+        Matrix Object
+  row_dist_cutoff_rate:
+    ui-name : |
+        Row Height Cutoff Ratio
+    short-hint: |
+        Row Height Cutoff Ratio
+  col_dist_cutoff_rate:
+    ui-name : |
+        Column Height Cutoff Ratio
+    short-hint: |
+        Column Height Cutoff Ratio
+  cluster_set_name :
+    ui-name : |
+        ClusterSet Object Name
+    short-hint : |
+        ClusterSet Object Name
+  dist_metric :
+    ui-name : |
+        Distance Metric
+    short-hint : |
+        Distance Metric
+  linkage_method :
+    ui-name : |
+      Linkage Method
+    short-hint : |
+      Linkage Method
+  fcluster_criterion :
+    ui-name : |
+      Fcluster Criterion
+    short-hint : |
+      Fcluster Criterion
+
+description : |
+    <p>This app creates hierarchical clustering for a matrix object</p>
+    <p><strong>Team members who developed & deployed algorithm in KBase:</strong> Tianhao Gu</p>
+
