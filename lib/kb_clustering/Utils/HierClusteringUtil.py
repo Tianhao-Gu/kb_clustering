@@ -1,26 +1,22 @@
 
-import time
 import json
 import os
 import logging
 import errno
 import uuid
 import sys
-import shutil
 import pandas as pd
+import shutil
 from matplotlib import pyplot as plt
-import numpy as np
-import itertools
-import seaborn as sns
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
 from plotly.offline import plot
 import scipy.cluster.hierarchy as hier
+import scipy.spatial.distance as dist
 
 
 from installed_clients.DataFileUtilClient import DataFileUtil
-from installed_clients.GenericsAPIClient import GenericsAPI
-from installed_clients.kb_ke_utilClient import kb_ke_util
+from installed_clients.KBaseReportClient import KBaseReport
 
 
 class HierClusteringUtil:
@@ -83,18 +79,306 @@ class HierClusteringUtil:
             error_msg += 'Available metric: {}'.format(self.CRITERION)
             raise ValueError(error_msg)
 
+    def _build_plotly_clustermap(self, df, dist_metric, linkage_method):
+
+        logging.info('start building plotly page')
+
+        output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+        self._mkdir_p(output_directory)
+        plot_file = os.path.join(output_directory, 'clustermap.html')
+
+        df.fillna(0, inplace=True)
+
+        # Initialize figure by creating upper dendrogram
+        logging.info('initializing upper dendrogram')
+        figure = ff.create_dendrogram(df.T, orientation='bottom', labels=df.T.index,
+                                      linkagefun=lambda x: hier.linkage(df.T.values,
+                                                                        method=linkage_method,
+                                                                        metric=dist_metric))
+        for i in range(len(figure['data'])):
+            figure['data'][i]['yaxis'] = 'y2'
+
+        # Create Side Dendrogram
+        logging.info('creating side dendrogram')
+        dendro_side = ff.create_dendrogram(df, orientation='right', labels=df.index,
+                                           linkagefun=lambda x: hier.linkage(
+                                                                        df.values,
+                                                                        method=linkage_method,
+                                                                        metric=dist_metric))
+        for i in range(len(dendro_side['data'])):
+            dendro_side['data'][i]['xaxis'] = 'x2'
+
+        # Add Side Dendrogram Data to Figure
+        figure.add_traces(dendro_side['data'])
+        # figure['data'].extend(dendro_side['data'])
+
+        # Create Heatmap
+        logging.info('creating heatmap')
+        heatmap = [go.Heatmap(x=df.columns, y=df.index, z=df.values, colorscale='YlGnBu')]
+
+        original_heatmap_x = heatmap[0]['x']
+        original_heatmap_y = heatmap[0]['y']
+
+        heatmap[0]['x'] = figure['layout']['xaxis']['tickvals']
+        heatmap[0]['y'] = dendro_side['layout']['yaxis']['tickvals']
+
+        # Add Heatmap Data to Figure
+        figure.add_traces(heatmap)
+        # figure['data'].extend(heatmap)
+
+        # Edit Layout
+        figure['layout'].update({'width': 800, 'height': 800,
+                                 'showlegend': False, 'hovermode': 'closest',
+                                 })
+        # Edit xaxis
+        figure['layout']['xaxis'].update({'domain': [.15, 1],
+                                          'mirror': False,
+                                          'showgrid': False,
+                                          'showline': False,
+                                          'zeroline': False,
+                                          'ticktext': original_heatmap_x,
+                                          'ticks': ""})
+        # Edit xaxis2
+        figure['layout'].update({'xaxis2': {'domain': [0, .15],
+                                            'mirror': False,
+                                            'showgrid': False,
+                                            'showline': False,
+                                            'zeroline': False,
+                                            'showticklabels': False,
+                                            'ticktext': original_heatmap_x,
+                                            'ticks': ""}})
+
+        # Edit yaxis
+        figure['layout']['yaxis'] = dendro_side['layout']['yaxis']
+        figure['layout']['yaxis'].update({'domain': [0, .85],
+                                          'mirror': False,
+                                          'showgrid': False,
+                                          'showline': False,
+                                          'zeroline': False,
+                                          'showticklabels': False,
+                                          'ticktext': original_heatmap_y,
+                                          'ticks': ""})
+        # Edit yaxis2
+        figure['layout'].update({'yaxis2': {'domain': [.825, .975],
+                                            'mirror': False,
+                                            'showgrid': False,
+                                            'showline': False,
+                                            'zeroline': False,
+                                            'showticklabels': False,
+                                            'ticks': ""}})
+
+        logging.info('plotting figure')
+        plot(figure, filename=plot_file)
+
+        return plot_file
+
+    def _generate_visualization_content(self, output_directory, clusterheatmap):
+
+        """
+        _generate_visualization_content: generate visualization html content
+        """
+
+        clusterheatmap_content = ''
+
+        if clusterheatmap is None:
+            clusterheatmap_content += 'clustet heatmap is too large to display'
+        elif os.path.basename(clusterheatmap).endswith('.html'):
+            clusterheatmap_html = 'clusterheatmap.html'
+            shutil.copy2(clusterheatmap,
+                         os.path.join(output_directory, clusterheatmap_html))
+
+            clusterheatmap_content += '<iframe height="900px" width="100%" '
+            clusterheatmap_content += 'src="{}" style="border:none;"></iframe>'.format(clusterheatmap_html)
+        else:
+            raise ValueError('Unexpected cluster heatmap file format')
+
+        return clusterheatmap_content
+
+    def _generate_hierarchical_html_report(self, cluster_set_refs, clusterheatmap):
+        """
+        _generate_hierarchical_html_report: generate html summary report for hierarchical
+                                            clustering app
+        """
+
+        logging.info('start generating html report')
+        html_report = list()
+
+        output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+        self._mkdir_p(output_directory)
+        result_file_path = os.path.join(output_directory, 'hier_report.html')
+
+        clusterheatmap_content = self._generate_visualization_content(
+                                                            output_directory,
+                                                            clusterheatmap)
+
+        with open(result_file_path, 'w') as result_file:
+            with open(os.path.join(os.path.dirname(__file__), 'hier_report_template.html'),
+                      'r') as report_template_file:
+                report_template = report_template_file.read()
+                report_template = report_template.replace('<p>ClusterHeatmap</p>',
+                                                          clusterheatmap_content)
+                result_file.write(report_template)
+
+        report_shock_id = self.dfu.file_to_shock({'file_path': output_directory,
+                                                  'pack': 'zip'})['shock_id']
+
+        html_report.append({'shock_id': report_shock_id,
+                            'name': os.path.basename(result_file_path),
+                            'label': os.path.basename(result_file_path),
+                            'description': 'HTML summary report for ExpressionMatrix Cluster App'
+                            })
+        return html_report
+
+    def _generate_hierarchical_cluster_report(self, cluster_set_refs, workspace_name, plotly_heatmap):
+        """
+        _generate_hierarchical_cluster_report: generate summary report
+        """
+        objects_created = []
+        for cluster_set_ref in cluster_set_refs:
+            objects_created.append({'ref': cluster_set_ref,
+                                    'description': 'Hierarchical ClusterSet'})
+
+        if not plotly_heatmap:
+            report_params = {'message': '',
+                             'objects_created': objects_created,
+                             'workspace_name': workspace_name,
+                             'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
+        else:
+            output_html_files = self._generate_hierarchical_html_report(
+                                                        cluster_set_refs,
+                                                        plotly_heatmap)
+
+            report_params = {'message': '',
+                             'workspace_name': workspace_name,
+                             'objects_created': objects_created,
+                             'html_links': output_html_files,
+                             'direct_html_link_index': 0,
+                             'html_window_height': 333,
+                             'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
+
+        kbase_report_client = KBaseReport(self.callback_url, token=self.token)
+        output = kbase_report_client.create_extended_report(report_params)
+
+        report_output = {'report_name': output['name'], 'report_ref': output['ref']}
+
+        return report_output
+
+    def _gen_hierarchical_clusters(self, clusters, conditionset_mapping, data_matrix_df):
+        clusters_list = list()
+
+        index = data_matrix_df.index.tolist()
+
+        for cluster in list(clusters.values()):
+            labeled_cluster = {}
+            id_to_data_position = {}
+            for item in cluster:
+                id_to_data_position.update({item: index.index(item)})
+
+            labeled_cluster.update({'id_to_data_position': id_to_data_position})
+            if conditionset_mapping:
+                id_to_condition = {k: v for k, v in list(conditionset_mapping.items()) if k in cluster}
+                labeled_cluster.update({'id_to_condition': id_to_condition})
+
+            clusters_list.append(labeled_cluster)
+
+        return clusters_list
+
+    def _build_hierarchical_cluster_set(self, clusters, cluster_set_name, genome_ref, matrix_ref,
+                                        conditionset_mapping, conditionset_ref, workspace_name,
+                                        clustering_parameters, data_matrix_df):
+
+        """
+        _build_hierarchical_cluster_set: build KBaseExperiments.ClusterSet object
+        """
+
+        logging.info('start saving KBaseExperiments.ClusterSet object')
+
+        if isinstance(workspace_name, int) or workspace_name.isdigit():
+            workspace_id = workspace_name
+        else:
+            workspace_id = self.dfu.ws_name_to_id(workspace_name)
+
+        clusters_list = self._gen_hierarchical_clusters(clusters, conditionset_mapping,
+                                                        data_matrix_df)
+
+        cluster_set_data = {'clusters': clusters_list,
+                            'clustering_parameters': clustering_parameters,
+                            'original_data': matrix_ref,
+                            'condition_set_ref': conditionset_ref,
+                            'genome_ref': genome_ref}
+
+        cluster_set_data = {k: v for k, v in list(cluster_set_data.items()) if v}
+
+        object_type = 'KBaseExperiments.ClusterSet'
+        save_object_params = {
+            'id': workspace_id,
+            'objects': [{'type': object_type,
+                         'data': cluster_set_data,
+                         'name': cluster_set_name}]}
+
+        dfu_oi = self.dfu.save_objects(save_object_params)[0]
+        cluster_set_ref = str(dfu_oi[6]) + '/' + str(dfu_oi[0]) + '/' + str(dfu_oi[4])
+
+        return cluster_set_ref
+
+    def _process_fcluster(self, fcluster, labels):
+        """
+        _process_fcluster: assign labels to corresponding cluster group
+                           if labels is none, return element pos array in each cluster group
+        """
+
+        logging.info('start assigning labels to clusters')
+
+        flat_cluster = {}
+        for pos, element in enumerate(fcluster):
+            cluster_name = str(element)
+            if cluster_name not in flat_cluster:
+                flat_cluster.update({cluster_name: [labels[pos]]})
+            else:
+                cluster = flat_cluster.get(cluster_name)
+                cluster.append(labels[pos])
+                flat_cluster.update({cluster_name: cluster})
+
+        return flat_cluster
+
+    def _build_flat_cluster(self, data_matrix_df, dist_cutoff_rate,
+                            dist_metric=None, linkage_method=None, fcluster_criterion=None):
+        """
+        _build_cluster: build flat clusters and dendrogram for data_matrix
+        """
+
+        logging.info('start building clusters')
+
+        data_matrix_df.fillna(0, inplace=True)
+        values = data_matrix_df.values
+        labels = data_matrix_df.index.tolist()
+
+        # calculate distance matrix
+        logging.info('start calculating distance matrix')
+        dist_matrix = dist.pdist(values, metric=dist_metric)
+
+        # calculate linkage matrix
+        logging.info('start calculating linkage matrix')
+        linkage_matrix = hier.linkage(dist_matrix, method=linkage_method)
+
+        height = max([item[2] for item in linkage_matrix])
+        dist_threshold = height * dist_cutoff_rate
+        logging.info('Height: {} Setting dist_threshold: {}'.format(height, dist_threshold))
+
+        # generate flat clusters
+        logging.info('start calculating flat clusters')
+        fcluster = hier.fcluster(linkage_matrix, dist_threshold, criterion=fcluster_criterion)
+        flat_cluster = self._process_fcluster(fcluster, labels=labels)
+
+        return flat_cluster
+
     def __init__(self, config):
-        self.ws_url = config["workspace-url"]
         self.callback_url = config['SDK_CALLBACK_URL']
         self.token = config['KB_AUTH_TOKEN']
-        self.shock_url = config['shock-url']
-        self.srv_wiz_url = config['srv-wiz-url']
         self.scratch = config['scratch']
 
         # helper kbase module
         self.dfu = DataFileUtil(self.callback_url)
-        self.ke_util = kb_ke_util(self.callback_url, service_ver="dev")
-        self.gen_api = GenericsAPI(self.callback_url, service_ver="dev")
 
         plt.switch_backend('agg')
         sys.setrecursionlimit(150000)
@@ -150,40 +434,28 @@ class HierClusteringUtil:
         linkage_method = params.get('linkage_method')
         fcluster_criterion = params.get('fcluster_criterion')
 
-        matrix_object = self.ws.get_objects2({'objects': [{'ref':
-                                                          matrix_ref}]})['data'][0]
-        matrix_data = matrix_object['data']
+        matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
 
-        data_matrix = self.gen_api.fetch_data({'obj_ref': matrix_ref}).get('data_matrix')
-        transpose_data_matrix = pd.read_json(data_matrix).T.to_json()
+        matrix_data_values = matrix_data['data']
+        data_matrix_df = pd.DataFrame(matrix_data_values['values'],
+                                      index=matrix_data_values['row_ids'],
+                                      columns=matrix_data_values['col_ids'])
+        transpose_data_matrix_df = data_matrix_df.T
 
         try:
-            plotly_heatmap = self._build_plotly_clustermap(data_matrix, dist_metric, linkage_method)
-            # plotly_heatmap = self._build_clustermap(data_matrix, dist_metric, linkage_method)
-        except:
+            plotly_heatmap = self._build_plotly_clustermap(data_matrix_df, dist_metric, linkage_method)
+        except Exception:
             plotly_heatmap = None
 
-        (row_flat_cluster,
-         row_labels,
-         row_newick,
-         row_dendrogram_path,
-         row_dendrogram_truncate_path) = self._build_flat_cluster(
-                                                            data_matrix,
-                                                            row_dist_cutoff_rate,
-                                                            dist_metric=dist_metric,
-                                                            linkage_method=linkage_method,
-                                                            fcluster_criterion=fcluster_criterion)
+        row_flat_cluster = self._build_flat_cluster(data_matrix_df, row_dist_cutoff_rate,
+                                                    dist_metric=dist_metric,
+                                                    linkage_method=linkage_method,
+                                                    fcluster_criterion=fcluster_criterion)
 
-        (col_flat_cluster,
-         col_labels,
-         col_newick,
-         col_dendrogram_path,
-         col_dendrogram_truncate_path) = self._build_flat_cluster(
-                                                            transpose_data_matrix,
-                                                            col_dist_cutoff_rate,
-                                                            dist_metric=dist_metric,
-                                                            linkage_method=linkage_method,
-                                                            fcluster_criterion=fcluster_criterion)
+        col_flat_cluster = self._build_flat_cluster(transpose_data_matrix_df, col_dist_cutoff_rate,
+                                                    dist_metric=dist_metric,
+                                                    linkage_method=linkage_method,
+                                                    fcluster_criterion=fcluster_criterion)
 
         genome_ref = matrix_data.get('genome_ref')
 
@@ -205,7 +477,7 @@ class HierClusteringUtil:
                                                     matrix_data.get('row_conditionset_ref'),
                                                     workspace_name,
                                                     clustering_parameters,
-                                                    data_matrix)
+                                                    data_matrix_df)
         cluster_set_refs.append(row_cluster_set)
 
         col_cluster_set_name = cluster_set_name + '_column'
@@ -218,17 +490,13 @@ class HierClusteringUtil:
                                                     matrix_data.get('col_conditionset_ref'),
                                                     workspace_name,
                                                     clustering_parameters,
-                                                    transpose_data_matrix)
+                                                    transpose_data_matrix_df)
         cluster_set_refs.append(col_cluster_set)
 
         returnVal = {'cluster_set_refs': cluster_set_refs}
 
         report_output = self._generate_hierarchical_cluster_report(cluster_set_refs,
                                                                    workspace_name,
-                                                                   row_dendrogram_path,
-                                                                   row_dendrogram_truncate_path,
-                                                                   col_dendrogram_path,
-                                                                   col_dendrogram_truncate_path,
                                                                    plotly_heatmap)
         returnVal.update(report_output)
 
