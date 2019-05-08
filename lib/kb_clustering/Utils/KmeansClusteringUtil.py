@@ -21,7 +21,7 @@ class KmeansClusteringUtil:
         logging.info('start validating run_kmeans_cluster params')
 
         # check for required parameters
-        for p in ['matrix_ref', 'workspace_name', 'k_num']:
+        for p in ['matrix_ref', 'workspace_name', 'cluster_set_name', 'k_num']:
             if p not in params:
                 raise ValueError('"{}" parameter is required, but missing'.format(p))
 
