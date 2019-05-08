@@ -40,71 +40,6 @@
         "valid_ws_types" : ["KBaseExperiments.ClusterSet"],
         "is_output_name" : true
       }
-  },{
-    "id" : "dist_metric",
-    "optional" : true,
-    "advanced" : true,
-    "allow_multiple" : false,
-    "default_values" : [ "euclidean" ],
-    "field_type" : "dropdown",
-    "dropdown_options" : {
-      "options": [
-        {
-          "value": "braycurtis",
-          "display": "braycurtis"
-        },{
-          "value": "canberra",
-          "display": "canberra"
-        },{
-          "value": "chebyshev",
-          "display": "chebyshev"
-        },{
-          "value": "cityblock",
-          "display": "cityblock"
-        },{
-          "value": "correlation",
-          "display": "correlation"
-        },{
-          "value": "cosine",
-          "display": "cosine"
-        },{
-          "value": "dice",
-          "display": "dice"
-        },{
-          "value": "euclidean",
-          "display": "euclidean"
-        },{
-          "value": "hamming",
-          "display": "hamming"
-        },{
-          "value": "jaccard",
-          "display": "jaccard"
-        },{
-          "value": "kulsinski",
-          "display": "kulsinski"
-        },{
-          "value": "matching",
-          "display": "matching"
-        },{
-          "value": "rogerstanimoto",
-          "display": "rogerstanimoto"
-        },{
-          "value": "russellrao",
-          "display": "russellrao"
-        },{
-          "value": "sokalmichener",
-          "display": "sokalmichener"
-        },{
-          "value": "sokalsneath",
-          "display": "sokalsneath"
-        },{
-          "value": "sqeuclidean",
-          "display": "sqeuclidean"
-        },{
-          "value": "yule",
-          "display": "yule"
-        }
-    ]}
   }],
   "behavior" : {
     "service-mapping" : {
@@ -128,10 +63,6 @@
         {
             "input_parameter" : "cluster_set_name",
             "target_property" : "cluster_set_name"
-        },
-        {
-          "input_parameter" : "dist_metric",
-          "target_property" : "dist_metric"
         }],
       "output_mapping" : [
         {

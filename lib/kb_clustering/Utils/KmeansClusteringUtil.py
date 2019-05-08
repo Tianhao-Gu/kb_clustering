@@ -12,11 +12,6 @@ from installed_clients.KBaseReportClient import KBaseReport
 
 class KmeansClusteringUtil:
 
-    METRIC = ["braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine",
-              "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
-              "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath", "sqeuclidean",
-              "yule"]
-
     def _validate_run_kmeans_cluster_params(self, params):
         """
         _validate_run_kmeans_cluster_params:
@@ -26,17 +21,9 @@ class KmeansClusteringUtil:
         logging.info('start validating run_kmeans_cluster params')
 
         # check for required parameters
-        for p in ['matrix_ref', 'workspace_name', 'cluster_set_name',
-                  'k_num']:
+        for p in ['matrix_ref', 'workspace_name', 'k_num']:
             if p not in params:
                 raise ValueError('"{}" parameter is required, but missing'.format(p))
-
-        # check metric validation
-        metric = params.get('dist_metric')
-        if metric and metric not in self.METRIC:
-            error_msg = 'INPUT ERROR:\nInput metric function [{}] is not valid.\n'.format(metric)
-            error_msg += 'Available metric: {}'.format(self.METRIC)
-            raise ValueError(error_msg)
 
     def _gen_clusters(self, clusters, conditionset_mapping):
         clusters_list = list()
@@ -88,7 +75,7 @@ class KmeansClusteringUtil:
 
         return cluster_set_ref
 
-    def _build_kmeans_cluster(self, data_matrix_df, k_num, dist_metric='euclidean'):
+    def _build_kmeans_cluster(self, data_matrix_df, k_num):
         """
         _build_kmeans_cluster: Build Kmeans cluster
         """
@@ -184,7 +171,6 @@ class KmeansClusteringUtil:
         workspace_name = params.get('workspace_name')
         cluster_set_name = params.get('cluster_set_name')
         k_num = params.get('k_num')
-        dist_metric = params.get('dist_metric', 'euclidean')
 
         matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
 
@@ -194,15 +180,12 @@ class KmeansClusteringUtil:
                                       columns=matrix_data_values['col_ids'])
         transpose_data_matrix_df = data_matrix_df.T
 
-        row_kmeans_clusters = self._build_kmeans_cluster(data_matrix_df, k_num,
-                                                         dist_metric=dist_metric)
+        row_kmeans_clusters = self._build_kmeans_cluster(data_matrix_df, k_num)
 
-        col_kmeans_clusters = self._build_kmeans_cluster(transpose_data_matrix_df, k_num,
-                                                         dist_metric=dist_metric)
+        col_kmeans_clusters = self._build_kmeans_cluster(transpose_data_matrix_df, k_num)
 
         genome_ref = matrix_data.get('genome_ref')
-        clustering_parameters = {'k_num': str(k_num),
-                                 'dist_metric': str(dist_metric)}
+        clustering_parameters = {'k_num': str(k_num)}
 
         cluster_set_refs = []
 
