@@ -14,7 +14,8 @@ RUN pip install matplotlib \
     && pip install xlrd \
     && pip install sklearn \
     && pip install plotly \
-    && pip install numpy
+    && pip install numpy \
+    && pip install scipy
 
 # -----------------------------------------
 

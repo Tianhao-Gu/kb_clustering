@@ -1,15 +1,12 @@
 
 import json
-import os
 import logging
-import errno
 import uuid
-import sys
 import pandas as pd
+import scipy.spatial.distance as dist
+import scipy.cluster.vq as vq
 
 from installed_clients.DataFileUtilClient import DataFileUtil
-from installed_clients.GenericsAPIClient import GenericsAPI
-from installed_clients.kb_ke_utilClient import kb_ke_util
 from installed_clients.KBaseReportClient import KBaseReport
 
 
@@ -19,20 +16,6 @@ class KmeansClusteringUtil:
               "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
               "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath", "sqeuclidean",
               "yule"]
-
-    def _mkdir_p(self, path):
-        """
-        _mkdir_p: make directory for given path
-        """
-        if not path:
-            return
-        try:
-            os.makedirs(path)
-        except OSError as exc:
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
-                raise
 
     def _validate_run_kmeans_cluster_params(self, params):
         """
@@ -105,33 +88,25 @@ class KmeansClusteringUtil:
 
         return cluster_set_ref
 
-    def _build_kmeans_cluster(self, data_matrix, k_num, dist_metric=None):
+    def _build_kmeans_cluster(self, data_matrix_df, k_num, dist_metric='euclidean'):
         """
         _build_kmeans_cluster: Build Kmeans cluster
         """
 
         logging.info('start building clusters')
 
+        data_matrix_df.fillna(0, inplace=True)
+        values = data_matrix_df.values
+        rows = data_matrix_df.index
+
         # calculate distance matrix
         logging.info('start calculating distance matrix')
-        pdist_params = {'data_matrix': data_matrix,
-                        'metric': dist_metric}
-        pdist_ret = self.ke_util.run_pdist(pdist_params)
-
-        dist_matrix = pdist_ret['dist_matrix']
-        # labels = pdist_ret['labels']
+        dist_matrix = dist.pdist(values, metric=dist_metric)
+        dist_squareform = dist.squareform(dist_matrix)
 
         # run kmeans algorithm
         logging.info('start performing Kmeans algorithm')
-        kmeans_params = {'dist_matrix': dist_matrix,
-                         'k_num': k_num}
-        kmeans_ret = self.ke_util.run_kmeans2(kmeans_params)
-
-        # centroid = kmeans_ret.get('kmeans_ret')
-        idx = kmeans_ret.get('idx')
-
-        df = pd.read_json(data_matrix)
-        rows = df.index.tolist()
+        centroid, idx = vq.kmeans2(dist_squareform, k_num, minit='points')
 
         clusters = {}
         for list_index, value in enumerate(idx):
@@ -165,19 +140,16 @@ class KmeansClusteringUtil:
         return report_output
 
     def __init__(self, config):
-        self.ws_url = config["workspace-url"]
         self.callback_url = config['SDK_CALLBACK_URL']
         self.token = config['KB_AUTH_TOKEN']
-        self.shock_url = config['shock-url']
-        self.srv_wiz_url = config['srv-wiz-url']
-        self.scratch = config['scratch']
 
         # helper kbase module
         self.dfu = DataFileUtil(self.callback_url)
-        self.ke_util = kb_ke_util(self.callback_url, service_ver="dev")
-        self.gen_api = GenericsAPI(self.callback_url, service_ver="dev")
 
-        sys.setrecursionlimit(150000)
+        logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
+                            level=logging.INFO)
+
+        # sys.setrecursionlimit(150000)
 
     def run_kmeans_cluster(self, params):
         """
@@ -213,17 +185,20 @@ class KmeansClusteringUtil:
         workspace_name = params.get('workspace_name')
         cluster_set_name = params.get('cluster_set_name')
         k_num = params.get('k_num')
-        dist_metric = params.get('dist_metric')
+        dist_metric = params.get('dist_metric', 'euclidean')
 
         matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
 
-        data_matrix = self.gen_api.fetch_data({'obj_ref': matrix_ref}).get('data_matrix')
-        transpose_data_matrix = pd.read_json(data_matrix).T.to_json()
+        matrix_data_values = matrix_data['data']
+        data_matrix_df = pd.DataFrame(matrix_data_values['values'],
+                                      index=matrix_data_values['row_ids'],
+                                      columns=matrix_data_values['col_ids'])
+        transpose_data_matrix_df = data_matrix_df.T
 
-        row_kmeans_clusters = self._build_kmeans_cluster(data_matrix, k_num,
+        row_kmeans_clusters = self._build_kmeans_cluster(data_matrix_df, k_num,
                                                          dist_metric=dist_metric)
 
-        col_kmeans_clusters = self._build_kmeans_cluster(transpose_data_matrix, k_num,
+        col_kmeans_clusters = self._build_kmeans_cluster(transpose_data_matrix_df, k_num,
                                                          dist_metric=dist_metric)
 
         genome_ref = matrix_data.get('genome_ref')

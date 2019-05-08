@@ -71,24 +71,11 @@ class kb_clusteringTest(unittest.TestCase):
 
     @classmethod
     def prepare_data(cls):
-        # upload Genome object
-        genbank_file_name = 'minimal.gbff'
-        genbank_file_path = os.path.join(cls.scratch, genbank_file_name)
-        shutil.copy(os.path.join('data', genbank_file_name), genbank_file_path)
-
-        genome_object_name = 'test_Genome'
-        cls.genome_ref = cls.gfu.genbank_to_genome({'file': {'path': genbank_file_path},
-                                                    'workspace_name': cls.wsName,
-                                                    'genome_name': genome_object_name,
-                                                    'generate_ids_if_needed': 1
-                                                    })['genome_ref']
-
         # upload KBaseFeatureValues.ExpressionMatrix object
         workspace_id = cls.dfu.ws_name_to_id(cls.wsName)
         object_type = 'KBaseFeatureValues.ExpressionMatrix'
         expression_matrix_object_name = 'test_expression_matrix'
-        expression_matrix_data = {'genome_ref': cls.genome_ref,
-                                  'scale': 'log2',
+        expression_matrix_data = {'scale': 'log2',
                                   'type': 'level',
                                   'data': {'row_ids': ['gene_1', 'gene_2', 'gene_3'],
                                            'col_ids': ['condition_1', 'condition_2',
@@ -119,16 +106,10 @@ class kb_clusteringTest(unittest.TestCase):
                   'matrix_name': 'test_ExpressionMatrix',
                   'workspace_name': cls.wsName,
                   'input_file_path': matrix_file_path,
-                  'genome_ref': cls.genome_ref,
                   'scale': 'raw'}
         gen_api_ret = cls.gen_api.import_matrix_from_excel(params)
 
         cls.matrix_obj_ref = gen_api_ret.get('matrix_obj_ref')
-        matrix_obj_data = cls.dfu.get_objects(
-            {"object_refs": [cls.matrix_obj_ref]})['data'][0]['data']
-
-        cls.col_conditionset_ref = matrix_obj_data.get('col_attributemapping_ref')
-        cls.row_conditionset_ref = matrix_obj_data.get('row_attributemapping_ref')
 
     def fail_run_kmeans_cluster(self, params, error, exception=ValueError,
                                 contains=False):
@@ -168,10 +149,20 @@ class kb_clusteringTest(unittest.TestCase):
     def test_run_kmeans_cluster(self):
         self.start_test()
 
+        # test KBaseMatrices.ExpressionMatrix input
         params = {'matrix_ref': self.matrix_obj_ref,
                   'workspace_name': self.getWsName(),
                   'cluster_set_name': 'test_kmeans_cluster',
                   'k_num': 2,
+                  'dist_metric': 'euclidean'}
+        ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
+        self.check_run_kmeans_cluster_output(ret)
+
+        # test KBaseFeatureValues.ExpressionMatrix input
+        params = {'matrix_ref': self.expression_matrix_ref,
+                  'workspace_name': self.getWsName(),
+                  'cluster_set_name': 'test_kmeans_cluster',
+                  'k_num': 3,
                   'dist_metric': 'cityblock'}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
         self.check_run_kmeans_cluster_output(ret)

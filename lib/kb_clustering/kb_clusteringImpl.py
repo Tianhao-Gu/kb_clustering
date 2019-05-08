@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 #BEGIN_HEADER
-import logging
 import os
 
 from kb_clustering.Utils.KmeansClusteringUtil import KmeansClusteringUtil
@@ -34,9 +33,6 @@ class kb_clustering:
     # be found
     def __init__(self, config):
         #BEGIN_CONSTRUCTOR
-        logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
-                            level=logging.INFO)
-
         config['SDK_CALLBACK_URL'] = os.environ['SDK_CALLBACK_URL']
         config['KB_AUTH_TOKEN'] = os.environ['KB_AUTH_TOKEN']
 
