@@ -147,14 +147,6 @@ class kb_clusteringTest(unittest.TestCase):
         error_msg = '"matrix_ref" parameter is required, but missing'
         self.fail_run_kmeans_cluster(invalidate_params, error_msg)
 
-        invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
-                             'cluster_set_name': 'cluster_set_name',
-                             'k_num': 'k_num',
-                             'dist_metric': 'invalidate_metric'}
-        error_msg = 'INPUT ERROR:\nInput metric function [invalidate_metric] is not valid.\n'
-        self.fail_run_kmeans_cluster(invalidate_params, error_msg, contains=True)
-
     def test_bad_run_hierarchical_cluster_params(self):
         self.start_test()
         invalidate_params = {'missing_matrix_ref': 'matrix_ref',
