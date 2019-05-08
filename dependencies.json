@@ -1,4 +1,20 @@
 [ {
+  "module_name" : "DataFileUtil",
+  "type" : "sdk",
+  "version_tag" : "release"
+}, {
+  "module_name" : "GenericsAPI",
+  "type" : "sdk",
+  "version_tag" : "release"
+}, {
+  "module_name" : "GenomeFileUtil",
+  "type" : "sdk",
+  "version_tag" : "release"
+}, {
+  "module_name" : "kb_ke_util",
+  "type" : "sdk",
+  "version_tag" : "release"
+}, {
   "module_name" : "KBaseReport",
   "type" : "sdk",
   "version_tag" : "release"

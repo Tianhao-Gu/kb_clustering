@@ -1,0 +1,50 @@
+#
+# Define basic display information
+#
+name     : Create Kmeans Clustering for Matrix
+
+tooltip  : |
+    Create kmeans clustering for Matrix object
+screenshots :
+    []
+
+icon: data-yellow.png
+
+#
+# Define the set of other narrative methods that should be suggested to the user.
+#
+method-suggestions :
+    related :
+        []
+    next :
+        []
+
+#
+# Configure the display and description of the parameters
+#
+parameters :
+  matrix_ref :
+    ui-name : |
+        Matrix Object
+    short-hint : |
+        Matrix Object
+  k_num:
+    ui-name : |
+        Number Of Clusters To Form
+    short-hint: |
+        Number Of Clusters To Form
+  cluster_set_name :
+    ui-name : |
+        ClusterSet Object Name
+    short-hint : |
+        ClusterSet Object Name
+  dist_metric :
+    ui-name : |
+        Distance Metric
+    short-hint : |
+        Distance Metric
+
+description : |
+    <p>This app creates kmeans clustering for a matrix object</p>
+    <p><strong>Team members who developed & deployed algorithm in KBase:</strong> Tianhao Gu</p>
+

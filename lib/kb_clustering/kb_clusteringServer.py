@@ -338,10 +338,14 @@ class Application(object):
         self.serverlog.set_log_level(6)
         self.rpc_service = JSONRPCServiceCustom()
         self.method_authentication = dict()
-        self.rpc_service.add(impl_kb_clustering.run_kb_clustering,
-                             name='kb_clustering.run_kb_clustering',
+        self.rpc_service.add(impl_kb_clustering.run_hierarchical_cluster,
+                             name='kb_clustering.run_hierarchical_cluster',
                              types=[dict])
-        self.method_authentication['kb_clustering.run_kb_clustering'] = 'required'  # noqa
+        self.method_authentication['kb_clustering.run_hierarchical_cluster'] = 'required'  # noqa
+        self.rpc_service.add(impl_kb_clustering.run_kmeans_cluster,
+                             name='kb_clustering.run_kmeans_cluster',
+                             types=[dict])
+        self.method_authentication['kb_clustering.run_kmeans_cluster'] = 'required'  # noqa
         self.rpc_service.add(impl_kb_clustering.status,
                              name='kb_clustering.status',
                              types=[dict])
