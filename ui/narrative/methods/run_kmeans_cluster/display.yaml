@@ -8,7 +8,7 @@ tooltip  : |
 screenshots :
     []
 
-icon: data-yellow.png
+icon: analysis.png
 
 #
 # Define the set of other narrative methods that should be suggested to the user.
@@ -38,11 +38,6 @@ parameters :
         ClusterSet Object Name
     short-hint : |
         ClusterSet Object Name
-  dist_metric :
-    ui-name : |
-        Distance Metric
-    short-hint : |
-        Distance Metric
 
 description : |
     <p>This app creates kmeans clustering for a matrix object</p>

@@ -147,14 +147,6 @@ class kb_clusteringTest(unittest.TestCase):
         error_msg = '"matrix_ref" parameter is required, but missing'
         self.fail_run_kmeans_cluster(invalidate_params, error_msg)
 
-        invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
-                             'cluster_set_name': 'cluster_set_name',
-                             'k_num': 'k_num',
-                             'dist_metric': 'invalidate_metric'}
-        error_msg = 'INPUT ERROR:\nInput metric function [invalidate_metric] is not valid.\n'
-        self.fail_run_kmeans_cluster(invalidate_params, error_msg, contains=True)
-
     def test_bad_run_hierarchical_cluster_params(self):
         self.start_test()
         invalidate_params = {'missing_matrix_ref': 'matrix_ref',
@@ -206,8 +198,7 @@ class kb_clusteringTest(unittest.TestCase):
         params = {'matrix_ref': self.matrix_obj_ref,
                   'workspace_name': self.getWsName(),
                   'cluster_set_name': 'test_kmeans_cluster',
-                  'k_num': 2,
-                  'dist_metric': 'euclidean'}
+                  'k_num': 2}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
         self.check_run_cluster_output(ret)
 
@@ -215,8 +206,7 @@ class kb_clusteringTest(unittest.TestCase):
         params = {'matrix_ref': self.expression_matrix_ref,
                   'workspace_name': self.getWsName(),
                   'cluster_set_name': 'test_kmeans_cluster',
-                  'k_num': 3,
-                  'dist_metric': 'cityblock'}
+                  'k_num': 3}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
         self.check_run_cluster_output(ret)
 
@@ -224,7 +214,7 @@ class kb_clusteringTest(unittest.TestCase):
         self.start_test()
 
         # test KBaseMatrices.ExpressionMatrix input
-        params = {'matrix_ref': self.expression_matrix_ref,
+        params = {'matrix_ref': self.matrix_obj_ref,
                   'workspace_name': self.getWsName(),
                   'cluster_set_name': 'test_hierarchical_cluster_1',
                   'dist_metric': 'euclidean',
@@ -234,7 +224,7 @@ class kb_clusteringTest(unittest.TestCase):
         self.check_run_cluster_output(ret)
 
         # test KBaseFeatureValues.ExpressionMatrix input
-        params = {'matrix_ref': self.matrix_obj_ref,
+        params = {'matrix_ref': self.expression_matrix_ref,
                   'workspace_name': self.getWsName(),
                   'cluster_set_name': 'test_hierarchical_cluster_2',
                   'col_dist_cutoff_rate': 0.6,
