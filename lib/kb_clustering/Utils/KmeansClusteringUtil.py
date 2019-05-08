@@ -2,8 +2,8 @@
 import json
 import logging
 import uuid
+import sys
 import pandas as pd
-import scipy.spatial.distance as dist
 import scipy.cluster.vq as vq
 
 from installed_clients.DataFileUtilClient import DataFileUtil
@@ -99,14 +99,13 @@ class KmeansClusteringUtil:
         values = data_matrix_df.values
         rows = data_matrix_df.index
 
-        # calculate distance matrix
-        logging.info('start calculating distance matrix')
-        dist_matrix = dist.pdist(values, metric=dist_metric)
-        dist_squareform = dist.squareform(dist_matrix)
+        # normalize observations
+        logging.info('start normalizing raw data')
+        whiten_values = vq.whiten(values)
 
         # run kmeans algorithm
         logging.info('start performing Kmeans algorithm')
-        centroid, idx = vq.kmeans2(dist_squareform, k_num, minit='points')
+        centroid, idx = vq.kmeans2(whiten_values, k_num, minit='points')
 
         clusters = {}
         for list_index, value in enumerate(idx):
@@ -149,7 +148,7 @@ class KmeansClusteringUtil:
         logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
                             level=logging.INFO)
 
-        # sys.setrecursionlimit(150000)
+        sys.setrecursionlimit(150000)
 
     def run_kmeans_cluster(self, params):
         """

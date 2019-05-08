@@ -120,7 +120,16 @@ class kb_clusteringTest(unittest.TestCase):
         else:
             self.assertEqual(error, str(context.exception.args[0]))
 
-    def check_run_kmeans_cluster_output(self, ret):
+    def fail_run_hierarchical_cluster(self, params, error, exception=ValueError,
+                                      contains=False):
+        with self.assertRaises(exception) as context:
+            self.getImpl().run_hierarchical_cluster(self.ctx, params)
+        if contains:
+            self.assertIn(error, str(context.exception.args[0]))
+        else:
+            self.assertEqual(error, str(context.exception.args[0]))
+
+    def check_run_cluster_output(self, ret):
         self.assertTrue('cluster_set_refs' in ret)
         self.assertTrue('report_name' in ret)
         self.assertTrue('report_ref' in ret)
@@ -146,6 +155,50 @@ class kb_clusteringTest(unittest.TestCase):
         error_msg = 'INPUT ERROR:\nInput metric function [invalidate_metric] is not valid.\n'
         self.fail_run_kmeans_cluster(invalidate_params, error_msg, contains=True)
 
+    def test_bad_run_hierarchical_cluster_params(self):
+        self.start_test()
+        invalidate_params = {'missing_matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name'}
+        error_msg = '"matrix_ref" parameter is required, but missing'
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'missing_workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name'}
+        error_msg = '"workspace_name" parameter is required, but missing'
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'missing_cluster_set_name': 'cluster_set_name'}
+        error_msg = '"cluster_set_name" parameter is required, but missing'
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name',
+                             'dist_cutoff_rate': 'dist_cutoff_rate',
+                             'dist_metric': 'invalidate_metric'}
+        error_msg = 'INPUT ERROR:\nInput metric function [invalidate_metric] is not valid.\n'
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg, contains=True)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name',
+                             'dist_cutoff_rate': 'dist_cutoff_rate',
+                             'linkage_method': 'invalidate_method'}
+        error_msg = "INPUT ERROR:\nInput linkage algorithm [invalidate_method] is not valid.\n"
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg, contains=True)
+
+        invalidate_params = {'matrix_ref': 'matrix_ref',
+                             'workspace_name': 'workspace_name',
+                             'cluster_set_name': 'cluster_set_name',
+                             'dist_cutoff_rate': 'dist_cutoff_rate',
+                             'fcluster_criterion': 'invalidate_criterion'}
+        error_msg = "INPUT ERROR:\nInput criterion [invalidate_criterion] is not valid.\n"
+        self.fail_run_hierarchical_cluster(invalidate_params, error_msg, contains=True)
+
     def test_run_kmeans_cluster(self):
         self.start_test()
 
@@ -156,7 +209,7 @@ class kb_clusteringTest(unittest.TestCase):
                   'k_num': 2,
                   'dist_metric': 'euclidean'}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
-        self.check_run_kmeans_cluster_output(ret)
+        self.check_run_cluster_output(ret)
 
         # test KBaseFeatureValues.ExpressionMatrix input
         params = {'matrix_ref': self.expression_matrix_ref,
@@ -165,4 +218,29 @@ class kb_clusteringTest(unittest.TestCase):
                   'k_num': 3,
                   'dist_metric': 'cityblock'}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
-        self.check_run_kmeans_cluster_output(ret)
+        self.check_run_cluster_output(ret)
+
+    def test_run_hierarchical_cluster(self):
+        self.start_test()
+
+        # test KBaseMatrices.ExpressionMatrix input
+        params = {'matrix_ref': self.expression_matrix_ref,
+                  'workspace_name': self.getWsName(),
+                  'cluster_set_name': 'test_hierarchical_cluster_1',
+                  'dist_metric': 'euclidean',
+                  'linkage_method': 'ward',
+                  'fcluster_criterion': 'distance'}
+        ret = self.getImpl().run_hierarchical_cluster(self.ctx, params)[0]
+        self.check_run_cluster_output(ret)
+
+        # test KBaseFeatureValues.ExpressionMatrix input
+        params = {'matrix_ref': self.matrix_obj_ref,
+                  'workspace_name': self.getWsName(),
+                  'cluster_set_name': 'test_hierarchical_cluster_2',
+                  'col_dist_cutoff_rate': 0.6,
+                  'row_dist_cutoff_rate': 0.6,
+                  'dist_metric': 'euclidean',
+                  'linkage_method': 'single',
+                  'fcluster_criterion': 'distance'}
+        ret = self.getImpl().run_hierarchical_cluster(self.ctx, params)[0]
+        self.check_run_cluster_output(ret)
