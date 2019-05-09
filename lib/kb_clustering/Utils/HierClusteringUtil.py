@@ -442,11 +442,6 @@ class HierClusteringUtil:
                                       columns=matrix_data_values['col_ids'])
         transpose_data_matrix_df = data_matrix_df.T
 
-        try:
-            plotly_heatmap = self._build_plotly_clustermap(data_matrix_df, dist_metric, linkage_method)
-        except Exception:
-            plotly_heatmap = None
-
         row_flat_cluster = self._build_flat_cluster(data_matrix_df, row_dist_cutoff_rate,
                                                     dist_metric=dist_metric,
                                                     linkage_method=linkage_method,
@@ -494,6 +489,13 @@ class HierClusteringUtil:
         cluster_set_refs.append(col_cluster_set)
 
         returnVal = {'cluster_set_refs': cluster_set_refs}
+
+        # try:
+        #     plotly_heatmap = self._build_plotly_clustermap(data_matrix_df, dist_metric, linkage_method)
+        # except Exception:
+        #     plotly_heatmap = None
+
+        plotly_heatmap = None
 
         report_output = self._generate_hierarchical_cluster_report(cluster_set_refs,
                                                                    workspace_name,
