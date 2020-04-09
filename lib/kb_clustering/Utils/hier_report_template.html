@@ -66,9 +66,9 @@ td, th {
     padding: 8px;
 }
 
-tr:nth-child(odd) {
+/*tr:nth-child(odd) {
     background-color: #dddddd;
-}
+}*/
 
 div.gallery {
     margin: 5px;
@@ -98,11 +98,21 @@ div.desc {
 <p></p>
 
 <div class="tab">
-  <button class="tablinks" onclick="openTab(event, 'ClusterHeatmap')" id="defaultOpen">Cluster Heatmap</button>
+  <button class="tablinks" onclick="openTab(event, 'ClusterInfo')" id="defaultOpen">Cluster Info</button>
+  <button class="tablinks" onclick="openTab(event, 'RowDendrogram')">Row Dendrogram</button>
+  <button class="tablinks" onclick="openTab(event, 'ColDendrogram')">Column Dendrogram</button>
 </div>
 
-<div id="ClusterHeatmap" class="tabcontent">
-  <p>ClusterHeatmap</p>
+<div id="ClusterInfo" class="tabcontent">
+  <p>Cluster_Info</p>
+</div>
+
+<div id="RowDendrogram" class="tabcontent">
+  <p>Row_Dendrogram</p>
+</div>
+
+<div id="ColDendrogram" class="tabcontent">
+  <p>Column_Dendrogram</p>
 </div>
 
 <script>
