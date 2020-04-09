@@ -204,11 +204,14 @@ class HierClusteringUtil:
                                     <th>Cluster Index</th>
                                     <th>Size</th>
                                   </tr>\n'''
-        for index, labels in row_flat_cluster.items():
+
+        for index in sorted(row_flat_cluster.keys()):
+            labels = row_flat_cluster[index]
             cluster_info += '''\n<tr>
                                     <td>{}</td>
                                     <td>{}</td>
                             </tr>\n'''.format(index, len(labels))
+
         cluster_info += '''\n</table>\n'''
 
         cluster_info += '''\n<br><br>\n'''
@@ -219,11 +222,14 @@ class HierClusteringUtil:
                                     <th>Cluster Index</th>
                                     <th>Size</th>
                                   </tr>\n'''
-        for index, labels in col_flat_cluster.items():
+
+        for index in sorted(col_flat_cluster.keys()):
+            labels = col_flat_cluster[index]
             cluster_info += '''\n<tr>
                                     <td>{}</td>
                                     <td>{}</td>
                             </tr>\n'''.format(index, len(labels))
+
         cluster_info += '''\n</table>\n'''
 
         return cluster_info
