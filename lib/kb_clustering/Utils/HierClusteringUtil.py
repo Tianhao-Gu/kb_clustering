@@ -228,7 +228,8 @@ class HierClusteringUtil:
 
         return cluster_info
 
-    def _generate_dendrogramo_content(self, dendrogram_path, truncated):
+    def _generate_dendrogramo_content(self, dendrogram_path, truncated, output_directory,
+                                      col=False):
 
         dendrogramo_content = ''''''
 
@@ -239,7 +240,12 @@ class HierClusteringUtil:
                 dendrogramo_content += '''\n<p style="color:red;" >'''
                 dendrogramo_content += '''Showing the last 12 merged clusters.</p>\n'''
 
-            dendrogramo_content += '''\n<img src="{}" '''.format(dendrogram_path)
+            prefix = 'col_' if col else 'row_'
+            dendrogram_name = prefix + os.path.basename(dendrogram_path)
+            shutil.copy2(dendrogram_path,
+                         os.path.join(output_directory, dendrogram_name))
+
+            dendrogramo_content += '''\n<img src="{}" '''.format(dendrogram_name)
             dendrogramo_content += '''alt="dendrogram" width="460" height="345">\n'''
         else:
             dendrogramo_content += '''\n<p style="color:red;" >'''
@@ -265,9 +271,12 @@ class HierClusteringUtil:
         cluster_info = self._generate_cluster_info_content(row_flat_cluster, col_flat_cluster)
 
         row_dendrogramo_content = self._generate_dendrogramo_content(row_dendrogram_path,
-                                                                     row_truncated)
+                                                                     row_truncated,
+                                                                     output_directory)
         col_dendrogramo_content = self._generate_dendrogramo_content(col_dendrogram_path,
-                                                                     col_truncated)
+                                                                     col_truncated,
+                                                                     output_directory,
+                                                                     col=True)
 
         with open(result_file_path, 'w') as result_file:
             with open(os.path.join(os.path.dirname(__file__), 'hier_report_template.html'),
@@ -512,7 +521,7 @@ class HierClusteringUtil:
             (dendrogram_path,
              truncated) = self._build_dendrogram_path(linkage_matrix, dist_threshold, labels)
         except Exception:
-            logging.warning('failed to run run_model_characterization')
+            logging.warning('failed to run _build_dendrogram_path')
             logging.warning(traceback.format_exc())
             logging.warning(sys.exc_info()[2])
             dendrogram_path = None
