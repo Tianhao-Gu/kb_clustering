@@ -205,7 +205,9 @@ class HierClusteringUtil:
                                     <th>Size</th>
                                   </tr>\n'''
 
-        for index in sorted(row_flat_cluster.keys()):
+        keys = list(row_flat_cluster.keys())
+        keys.sort(key=float)
+        for index in keys:
             labels = row_flat_cluster[index]
             cluster_info += '''\n<tr>
                                     <td>{}</td>
@@ -223,7 +225,9 @@ class HierClusteringUtil:
                                     <th>Size</th>
                                   </tr>\n'''
 
-        for index in sorted(col_flat_cluster.keys()):
+        keys = list(col_flat_cluster.keys())
+        keys.sort(key=float)
+        for index in keys:
             labels = col_flat_cluster[index]
             cluster_info += '''\n<tr>
                                     <td>{}</td>
