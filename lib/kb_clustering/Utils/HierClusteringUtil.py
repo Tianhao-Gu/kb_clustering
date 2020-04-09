@@ -7,6 +7,7 @@ import uuid
 import sys
 import pandas as pd
 import shutil
+import traceback
 from matplotlib import pyplot as plt
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
@@ -194,7 +195,61 @@ class HierClusteringUtil:
 
         return clusterheatmap_content
 
-    def _generate_hierarchical_html_report(self, cluster_set_refs, clusterheatmap):
+    def _generate_cluster_info_content(self, row_flat_cluster, col_flat_cluster):
+
+        cluster_info = ''''''
+        cluster_info += '''\n<p>Row Cluster Info</p>
+                                <table style="width:30%">
+                                  <tr>
+                                    <th>Cluster Index</th>
+                                    <th>Size</th>
+                                  </tr>\n'''
+        for index, labels in row_flat_cluster.items():
+            cluster_info += '''\n<tr>
+                                    <td>{}</td>
+                                    <td>{}</td>
+                            </tr>\n'''.format(index, len(labels))
+        cluster_info += '''\n</table>\n'''
+
+        cluster_info += '''\n<br><br>\n'''
+
+        cluster_info += '''\n<p>Column Cluster Info</p>
+                                <table style="width:30%">
+                                  <tr>
+                                    <th>Cluster Index</th>
+                                    <th>Size</th>
+                                  </tr>\n'''
+        for index, labels in col_flat_cluster.items():
+            cluster_info += '''\n<tr>
+                                    <td>{}</td>
+                                    <td>{}</td>
+                            </tr>\n'''.format(index, len(labels))
+        cluster_info += '''\n</table>\n'''
+
+        return cluster_info
+
+    def _generate_dendrogramo_content(self, dendrogram_path, truncated):
+
+        dendrogramo_content = ''''''
+
+        if dendrogram_path:
+            if truncated:
+                dendrogramo_content += '''\n<p style="color:red;" >'''
+                dendrogramo_content += '''Full dendrogram is too large to be displayed.</p>\n'''
+                dendrogramo_content += '''\n<p style="color:red;" >'''
+                dendrogramo_content += '''Showing the last 12 merged clusters.</p>\n'''
+
+            dendrogramo_content += '''\n<img src="{}" '''.format(dendrogram_path)
+            dendrogramo_content += '''alt="dendrogram" width="460" height="345">\n'''
+        else:
+            dendrogramo_content += '''\n<p style="color:red;" >'''
+            dendrogramo_content += '''Dendrogram is too large to be displayed.</p>\n'''
+
+        return dendrogramo_content
+
+    def _generate_hierarchical_html_report(self, row_flat_cluster, row_dendrogram_path,
+                                           row_truncated, col_flat_cluster, col_dendrogram_path,
+                                           col_truncated):
         """
         _generate_hierarchical_html_report: generate html summary report for hierarchical
                                             clustering app
@@ -207,16 +262,23 @@ class HierClusteringUtil:
         self._mkdir_p(output_directory)
         result_file_path = os.path.join(output_directory, 'hier_report.html')
 
-        clusterheatmap_content = self._generate_visualization_content(
-                                                            output_directory,
-                                                            clusterheatmap)
+        cluster_info = self._generate_cluster_info_content(row_flat_cluster, col_flat_cluster)
+
+        row_dendrogramo_content = self._generate_dendrogramo_content(row_dendrogram_path,
+                                                                     row_truncated)
+        col_dendrogramo_content = self._generate_dendrogramo_content(col_dendrogram_path,
+                                                                     col_truncated)
 
         with open(result_file_path, 'w') as result_file:
             with open(os.path.join(os.path.dirname(__file__), 'hier_report_template.html'),
                       'r') as report_template_file:
                 report_template = report_template_file.read()
-                report_template = report_template.replace('<p>ClusterHeatmap</p>',
-                                                          clusterheatmap_content)
+                report_template = report_template.replace('<p>Cluster_Info</p>',
+                                                          cluster_info)
+                report_template = report_template.replace('<p>Row_Dendrogram</p>',
+                                                          row_dendrogramo_content)
+                report_template = report_template.replace('<p>Column_Dendrogram</p>',
+                                                          col_dendrogramo_content)
                 result_file.write(report_template)
 
         report_shock_id = self.dfu.file_to_shock({'file_path': output_directory,
@@ -225,36 +287,43 @@ class HierClusteringUtil:
         html_report.append({'shock_id': report_shock_id,
                             'name': os.path.basename(result_file_path),
                             'label': os.path.basename(result_file_path),
-                            'description': 'HTML summary report for ExpressionMatrix Cluster App'
+                            'description': 'HTML summary report for Cluster App'
                             })
         return html_report
 
-    def _generate_hierarchical_cluster_report(self, cluster_set_refs, workspace_name, plotly_heatmap):
+    def _generate_hierarchical_cluster_report(self,  cluster_set_refs, workspace_name,
+                                              row_flat_cluster, row_dendrogram_path, row_truncated,
+                                              col_flat_cluster, col_dendrogram_path, col_truncated,
+                                              plotly_heatmap):
         """
         _generate_hierarchical_cluster_report: generate summary report
         """
+
         objects_created = []
         for cluster_set_ref in cluster_set_refs:
             objects_created.append({'ref': cluster_set_ref,
                                     'description': 'Hierarchical ClusterSet'})
 
-        if not plotly_heatmap:
-            report_params = {'message': '',
-                             'objects_created': objects_created,
-                             'workspace_name': workspace_name,
-                             'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
-        else:
-            output_html_files = self._generate_hierarchical_html_report(
-                                                        cluster_set_refs,
-                                                        plotly_heatmap)
+        # if not plotly_heatmap:
+        #     report_params = {'message': '',
+        #                      'objects_created': objects_created,
+        #                      'workspace_name': workspace_name,
+        #                      'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
+        # else:
+        output_html_files = self._generate_hierarchical_html_report(row_flat_cluster,
+                                                                    row_dendrogram_path,
+                                                                    row_truncated,
+                                                                    col_flat_cluster,
+                                                                    col_dendrogram_path,
+                                                                    col_truncated)
 
-            report_params = {'message': '',
-                             'workspace_name': workspace_name,
-                             'objects_created': objects_created,
-                             'html_links': output_html_files,
-                             'direct_html_link_index': 0,
-                             'html_window_height': 333,
-                             'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
+        report_params = {'message': '',
+                         'workspace_name': workspace_name,
+                         'objects_created': objects_created,
+                         'html_links': output_html_files,
+                         'direct_html_link_index': 0,
+                         'html_window_height': 333,
+                         'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
 
         kbase_report_client = KBaseReport(self.callback_url, token=self.token)
         output = kbase_report_client.create_extended_report(report_params)
@@ -341,6 +410,75 @@ class HierClusteringUtil:
 
         return flat_cluster
 
+    def _add_distance(self, ddata):
+        """
+        _add_distance: Add distance and cluster count to dendrogram
+        credit --
+        Author: Jorn Hees
+        https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/#Eye-Candy
+        """
+
+        logging.info('start adding distance to dendrogram')
+
+        annotate_above = 10  # useful in small plots so annotations don't overlap
+        for i, d, c in zip(ddata['icoord'], ddata['dcoord'], ddata['color_list']):
+            x = 0.5 * sum(i[1:3])
+            y = d[1]
+            if y > annotate_above:
+                plt.plot(x, y, 'o', c=c)
+                plt.annotate("%.3g" % y, (x, y), xytext=(0, -5),
+                             textcoords='offset points',
+                             va='top', ha='center')
+
+    def _build_dendrogram_path(self, linkage_matrix, dist_threshold, labels):
+        logging.info('start building dendrogram')
+
+        output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+        self._mkdir_p(output_directory)
+        dendrogram_path = os.path.join(output_directory, 'dendrogram.png')
+
+        truncated = False
+
+        if len(linkage_matrix) > 256:
+            last_merges = 12
+            plt.figure(figsize=(25, 10))
+            plt.ylabel('distance')
+            plt.title('Hierarchical Clustering Dendrogram (last 12 merges)')
+            plt.xlabel('cluster size')
+            ddata = hier.dendrogram(linkage_matrix,
+                                    leaf_rotation=45.,
+                                    leaf_font_size=8.,
+                                    show_leaf_counts=True,
+                                    labels=labels,
+                                    truncate_mode='lastp',
+                                    p=last_merges,
+                                    show_contracted=True)
+            truncated = True
+        else:
+            figure_width = min(max(len(labels) // 100 * 25, 25), 350)
+            plt.figure(figsize=(figure_width, figure_width//25*10))
+            plt.ylabel('distance')
+
+            plt.title('Hierarchical Clustering Dendrogram')
+            if labels:
+                plt.xlabel('labels')
+            else:
+                plt.xlabel('index')
+            ddata = hier.dendrogram(linkage_matrix,
+                                    leaf_rotation=45.,
+                                    leaf_font_size=8.,
+                                    show_leaf_counts=True,
+                                    labels=labels)
+
+        self._add_distance(ddata)
+
+        if dist_threshold:
+            plt.axhline(y=dist_threshold, c='k')
+
+        plt.savefig(dendrogram_path)
+
+        return dendrogram_path, truncated
+
     def _build_flat_cluster(self, data_matrix_df, dist_cutoff_rate,
                             dist_metric=None, linkage_method=None, fcluster_criterion=None):
         """
@@ -370,7 +508,17 @@ class HierClusteringUtil:
         fcluster = hier.fcluster(linkage_matrix, dist_threshold, criterion=fcluster_criterion)
         flat_cluster = self._process_fcluster(fcluster, labels=labels)
 
-        return flat_cluster
+        try:
+            (dendrogram_path,
+             truncated) = self._build_dendrogram_path(linkage_matrix, dist_threshold, labels)
+        except Exception:
+            logging.warning('failed to run run_model_characterization')
+            logging.warning(traceback.format_exc())
+            logging.warning(sys.exc_info()[2])
+            dendrogram_path = None
+            truncated = False
+
+        return flat_cluster, dendrogram_path, truncated
 
     def __init__(self, config):
         self.callback_url = config['SDK_CALLBACK_URL']
@@ -402,7 +550,7 @@ class HierClusteringUtil:
                      Details refer to:
                      https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
 
-        linkage_method: The linkage algorithm to use. Default set to 'single'.
+        linkage_method: The linkage algorithm to use. Default set to 'ward'.
                         The method can be
                         ["single", "complete", "average", "weighted", "centroid", "median", "ward"]
                         Details refer to:
@@ -430,9 +578,9 @@ class HierClusteringUtil:
         cluster_set_name = params.get('cluster_set_name')
         row_dist_cutoff_rate = float(params.get('row_dist_cutoff_rate', 0.5))
         col_dist_cutoff_rate = float(params.get('col_dist_cutoff_rate', 0.5))
-        dist_metric = params.get('dist_metric')
-        linkage_method = params.get('linkage_method')
-        fcluster_criterion = params.get('fcluster_criterion')
+        dist_metric = params.get('dist_metric', 'euclidean')
+        linkage_method = params.get('linkage_method', 'ward')
+        fcluster_criterion = params.get('fcluster_criterion', 'inconsistent')
 
         matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
 
@@ -442,15 +590,21 @@ class HierClusteringUtil:
                                       columns=matrix_data_values['col_ids'])
         transpose_data_matrix_df = data_matrix_df.T
 
-        row_flat_cluster = self._build_flat_cluster(data_matrix_df, row_dist_cutoff_rate,
-                                                    dist_metric=dist_metric,
-                                                    linkage_method=linkage_method,
-                                                    fcluster_criterion=fcluster_criterion)
+        (row_flat_cluster,
+         row_dendrogram_path,
+         row_truncated) = self._build_flat_cluster(data_matrix_df,
+                                                   row_dist_cutoff_rate,
+                                                   dist_metric=dist_metric,
+                                                   linkage_method=linkage_method,
+                                                   fcluster_criterion=fcluster_criterion)
 
-        col_flat_cluster = self._build_flat_cluster(transpose_data_matrix_df, col_dist_cutoff_rate,
-                                                    dist_metric=dist_metric,
-                                                    linkage_method=linkage_method,
-                                                    fcluster_criterion=fcluster_criterion)
+        (col_flat_cluster,
+         col_dendrogram_path,
+         col_truncated) = self._build_flat_cluster(transpose_data_matrix_df,
+                                                   col_dist_cutoff_rate,
+                                                   dist_metric=dist_metric,
+                                                   linkage_method=linkage_method,
+                                                   fcluster_criterion=fcluster_criterion)
 
         genome_ref = matrix_data.get('genome_ref')
 
@@ -499,6 +653,12 @@ class HierClusteringUtil:
 
         report_output = self._generate_hierarchical_cluster_report(cluster_set_refs,
                                                                    workspace_name,
+                                                                   row_flat_cluster,
+                                                                   row_dendrogram_path,
+                                                                   row_truncated,
+                                                                   col_flat_cluster,
+                                                                   col_dendrogram_path,
+                                                                   col_truncated,
                                                                    plotly_heatmap)
         returnVal.update(report_output)
 
