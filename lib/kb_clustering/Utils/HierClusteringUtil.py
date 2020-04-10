@@ -535,7 +535,7 @@ class HierClusteringUtil:
 
         dendrogram_path = None
         truncated = False
-        if len(labels) < 200:
+        if len(labels) < 100:
             try:
                 output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
                 self._mkdir_p(output_directory)
@@ -549,7 +549,8 @@ class HierClusteringUtil:
                                                                             values,
                                                                             method=linkage_method,
                                                                             metric=dist_metric))
-
+                figure.update_layout(xaxis={'automargin': True,
+                                            'tickangle': 45})
                 logging.info('start plotting figure')
                 plot(figure, filename=dendrogram_path)
             except Exception:
