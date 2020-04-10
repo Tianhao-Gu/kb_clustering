@@ -244,19 +244,25 @@ class HierClusteringUtil:
         dendrogramo_content = ''''''
 
         if dendrogram_path:
-            if truncated:
-                dendrogramo_content += '''\n<p style="color:red;" >'''
-                dendrogramo_content += '''Full dendrogram is too large to be displayed.</p>\n'''
-                dendrogramo_content += '''\n<p style="color:red;" >'''
-                dendrogramo_content += '''Showing the last 12 merged clusters.</p>\n'''
-
             prefix = 'col_' if col else 'row_'
             dendrogram_name = prefix + os.path.basename(dendrogram_path)
             shutil.copy2(dendrogram_path,
                          os.path.join(output_directory, dendrogram_name))
 
-            dendrogramo_content += '''\n<img src="{}" '''.format(dendrogram_name)
-            dendrogramo_content += '''alt="dendrogram" width="460" height="345">\n'''
+            if dendrogram_name.endswith('.html'):
+                dendrogramo_content += '''<iframe height="900px" width="100%" '''
+                dendrogramo_content += '''src="{}" style="border:none;"></iframe>\n'''.format(
+                                                                                dendrogram_name)
+            elif dendrogram_name.endswith('.png'):
+                if truncated:
+                    dendrogramo_content += '''\n<p style="color:red;" >'''
+                    dendrogramo_content += 'Full dendrogram is too large to be displayed.</p>\n'
+                    dendrogramo_content += '''\n<p style="color:red;" >'''
+                    dendrogramo_content += '''Showing the last 12 merged clusters.</p>\n'''
+                dendrogramo_content += '''\n<img src="{}" '''.format(dendrogram_name)
+                dendrogramo_content += '''alt="dendrogram" width="460" height="345">\n'''
+            else:
+                raise ValueError('Unexpected cluster dendrogram file format')
         else:
             dendrogramo_content += '''\n<p style="color:red;" >'''
             dendrogramo_content += '''Dendrogram is too large to be displayed.</p>\n'''
@@ -527,15 +533,40 @@ class HierClusteringUtil:
         fcluster = hier.fcluster(linkage_matrix, dist_threshold, criterion=fcluster_criterion)
         flat_cluster = self._process_fcluster(fcluster, labels=labels)
 
-        try:
-            (dendrogram_path,
-             truncated) = self._build_dendrogram_path(linkage_matrix, dist_threshold, labels)
-        except Exception:
-            logging.warning('failed to run _build_dendrogram_path')
-            logging.warning(traceback.format_exc())
-            logging.warning(sys.exc_info()[2])
-            dendrogram_path = None
-            truncated = False
+        dendrogram_path = None
+        truncated = False
+        if len(labels) < 200:
+            try:
+                output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+                self._mkdir_p(output_directory)
+                dendrogram_path = os.path.join(output_directory, 'dendrogram.html')
+
+                # Initialize figure by creating upper dendrogram
+                logging.info('start initializing dendrogram')
+                figure = ff.create_dendrogram(data_matrix_df, orientation='bottom',
+                                              labels=labels,
+                                              linkagefun=lambda x: hier.linkage(
+                                                                            values,
+                                                                            method=linkage_method,
+                                                                            metric=dist_metric))
+
+                logging.info('start plotting figure')
+                plot(figure, filename=dendrogram_path)
+            except Exception:
+                logging.warning('failed to run plotly pairplot')
+                logging.warning(traceback.format_exc())
+                logging.warning(sys.exc_info()[2])
+
+        if not dendrogram_path:
+            try:
+                (dendrogram_path,
+                 truncated) = self._build_dendrogram_path(linkage_matrix, dist_threshold, labels)
+            except Exception:
+                logging.warning('failed to run _build_dendrogram_path')
+                logging.warning(traceback.format_exc())
+                logging.warning(sys.exc_info()[2])
+                dendrogram_path = None
+                truncated = False
 
         return flat_cluster, dendrogram_path, truncated
 

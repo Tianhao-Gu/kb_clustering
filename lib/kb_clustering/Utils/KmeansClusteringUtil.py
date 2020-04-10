@@ -11,6 +11,8 @@ import traceback
 import shutil
 import scipy.cluster.vq as vq
 from matplotlib import pyplot as plt
+from plotly.offline import plot
+import plotly.express as px
 
 from installed_clients.DataFileUtilClient import DataFileUtil
 from installed_clients.KBaseReportClient import KBaseReport
@@ -129,20 +131,34 @@ class KmeansClusteringUtil:
 
         output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
         self._mkdir_p(output_directory)
-        pairplot_path = os.path.join(output_directory, 'pairplot.png')
 
         col = data_df.columns
+        data_df['cluster'] = [str(cluster_label) for cluster_label in cluster_labels]
 
-        data_df['cluster'] = cluster_labels
+        if len(col) > 200:
+            return None
 
         try:
-            sns_plot = sns.pairplot(data_df, hue='cluster', height=2.5, vars=list(col))
-            sns_plot.savefig(pairplot_path)
+            pairplot_path = os.path.join(output_directory, 'pairplot.html')
+            fig = px.scatter_matrix(data_df, dimensions=list(col), color='cluster',
+                                    symbol='cluster')
+            plot(fig, filename=pairplot_path)
         except Exception:
-            logging.warning('failed to run _build_dendrogram_path')
+            logging.warning('failed to run plotly pairplot')
             logging.warning(traceback.format_exc())
             logging.warning(sys.exc_info()[2])
             pairplot_path = None
+
+        if not pairplot_path:
+            try:
+                pairplot_path = os.path.join(output_directory, 'pairplot.png')
+                sns_plot = sns.pairplot(data_df, hue='cluster', height=2.5, vars=list(col))
+                sns_plot.savefig(pairplot_path)
+            except Exception:
+                logging.warning('failed to run seaborn pairplot')
+                logging.warning(traceback.format_exc())
+                logging.warning(sys.exc_info()[2])
+                pairplot_path = None
 
         return pairplot_path
 
@@ -157,8 +173,15 @@ class KmeansClusteringUtil:
             shutil.copy2(pairplot_path,
                          os.path.join(output_directory, pairplot_name))
 
-            pairplot_content += '''\n<img src="{}" '''.format(pairplot_name)
-            pairplot_content += '''alt="pairplot" width="480" height="480">\n'''
+            if pairplot_name.endswith('.html'):
+                pairplot_content += '''<iframe height="900px" width="100%" '''
+                pairplot_content += '''src="{}" style="border:none;"></iframe>\n'''.format(
+                                                                                    pairplot_name)
+            elif pairplot_name.endswith('.png'):
+                pairplot_content += '''\n<img src="{}" '''.format(pairplot_name)
+                pairplot_content += '''alt="pairplot" width="480" height="480">\n'''
+            else:
+                raise ValueError('Unexpected cluster pairplot file format')
         else:
             pairplot_content += '''\n<p style="color:red;" >'''
             pairplot_content += '''Pairplot is too large to be displayed.</p>\n'''
