@@ -535,7 +535,7 @@ class HierClusteringUtil:
 
         dendrogram_path = None
         truncated = False
-        if len(labels) < 100:
+        if len(labels) < 60:
             try:
                 output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
                 self._mkdir_p(output_directory)
