@@ -8,14 +8,11 @@ MAINTAINER KBase Developer
 
 # RUN apt-get update
 
-RUN pip install matplotlib \
-    && pip install seaborn \
-    && pip install pandas \
-    && pip install xlrd \
-    && pip install sklearn \
-    && pip install plotly \
-    && pip install numpy \
-    && pip install scipy
+RUN pip install matplotlib==3.2.1 \
+    && pip install seaborn==0.10.0 \
+    && pip install pandas==1.0.3 \
+    && pip install plotly==4.6.0 \
+    && pip install scipy==1.4.1
 
 # -----------------------------------------
 
