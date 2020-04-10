@@ -269,11 +269,6 @@ class KmeansClusteringUtil:
                          'html_window_height': 333,
                          'report_object_name': 'run_kmeans_cluster_' + str(uuid.uuid4())}
 
-        report_params = {'message': '',
-                         'objects_created': objects_created,
-                         'workspace_name': workspace_name,
-                         'report_object_name': 'run_kmeans_cluster_' + str(uuid.uuid4())}
-
         kbase_report_client = KBaseReport(self.callback_url, token=self.token)
         output = kbase_report_client.create_extended_report(report_params)
 
