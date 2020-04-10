@@ -135,7 +135,7 @@ class KmeansClusteringUtil:
         col = data_df.columns
         data_df['cluster'] = [str(cluster_label) for cluster_label in cluster_labels]
 
-        if len(col) > 200:
+        if len(col) > 50:
             return None
 
         try:
