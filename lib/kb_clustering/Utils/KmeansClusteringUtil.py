@@ -3,14 +3,34 @@ import json
 import logging
 import uuid
 import sys
+import errno
+import os
 import pandas as pd
+import seaborn as sns
+import traceback
+import shutil
 import scipy.cluster.vq as vq
+from matplotlib import pyplot as plt
 
 from installed_clients.DataFileUtilClient import DataFileUtil
 from installed_clients.KBaseReportClient import KBaseReport
 
 
 class KmeansClusteringUtil:
+
+    def _mkdir_p(self, path):
+        """
+        _mkdir_p: make directory for given path
+        """
+        if not path:
+            return
+        try:
+            os.makedirs(path)
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
 
     def _validate_run_kmeans_cluster_params(self, params):
         """
@@ -102,9 +122,132 @@ class KmeansClusteringUtil:
             else:
                 cluster.update({rows[list_index]: list_index})
 
-        return clusters
+        return clusters, idx
 
-    def _generate_kmeans_cluster_report(self, cluster_set_refs, workspace_name):
+    def _generate_pairplot(self, data_df, cluster_labels):
+        logging.info('start building pairplot')
+
+        output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+        self._mkdir_p(output_directory)
+        pairplot_path = os.path.join(output_directory, 'pairplot.png')
+
+        col = data_df.columns
+
+        data_df['cluster'] = cluster_labels
+
+        try:
+            sns_plot = sns.pairplot(data_df, hue='cluster', height=2.5, vars=list(col))
+            sns_plot.savefig(pairplot_path)
+        except Exception:
+            logging.warning('failed to run _build_dendrogram_path')
+            logging.warning(traceback.format_exc())
+            logging.warning(sys.exc_info()[2])
+            pairplot_path = None
+
+        return pairplot_path
+
+    def _generate_pairplot_content(self, pairplot_path, output_directory,
+                                   col=False):
+
+        pairplot_content = ''''''
+
+        if pairplot_path:
+            prefix = 'col_' if col else 'row_'
+            pairplot_name = prefix + os.path.basename(pairplot_path)
+            shutil.copy2(pairplot_path,
+                         os.path.join(output_directory, pairplot_name))
+
+            pairplot_content += '''\n<img src="{}" '''.format(pairplot_name)
+            pairplot_content += '''alt="pairplot" width="480" height="480">\n'''
+        else:
+            pairplot_content += '''\n<p style="color:red;" >'''
+            pairplot_content += '''Pairplot is too large to be displayed.</p>\n'''
+
+        return pairplot_content
+
+    def _generate_cluster_info_content(self, row_cluster_labels, col_cluster_lables):
+        cluster_info = ''''''
+        cluster_info += '''\n<p>Row Cluster Info</p>
+                                <table style="width:30%">
+                                  <tr>
+                                    <th>Cluster Index</th>
+                                    <th>Size</th>
+                                  </tr>\n'''
+
+        unique_labels = list(set(row_cluster_labels))
+        unique_labels.sort(key=float)
+        for index in unique_labels:
+            cluster_info += '''\n<tr>
+                                    <td>{}</td>
+                                    <td>{}</td>
+                            </tr>\n'''.format(index, row_cluster_labels.tolist().count(index))
+
+        cluster_info += '''\n</table>\n'''
+
+        cluster_info += '''\n<br><br>\n'''
+
+        cluster_info += '''\n<p>Column Cluster Info</p>
+                                <table style="width:30%">
+                                  <tr>
+                                    <th>Cluster Index</th>
+                                    <th>Size</th>
+                                  </tr>\n'''
+
+        unique_labels = list(set(col_cluster_lables))
+        unique_labels.sort(key=float)
+        for index in unique_labels:
+            cluster_info += '''\n<tr>
+                                    <td>{}</td>
+                                    <td>{}</td>
+                            </tr>\n'''.format(index, col_cluster_lables.tolist().count(index))
+
+        cluster_info += '''\n</table>\n'''
+
+        return cluster_info
+
+    def _generate_kmeans_html_report(self, data_matrix_df, row_cluster_labels,
+                                     transpose_data_matrix_df, col_cluster_lables):
+
+        logging.info('start generating html report')
+        html_report = list()
+
+        output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
+        self._mkdir_p(output_directory)
+        result_file_path = os.path.join(output_directory, 'hier_report.html')
+
+        row_pairplot = self._generate_pairplot(data_matrix_df, row_cluster_labels)
+        col_pairplot = self._generate_pairplot(transpose_data_matrix_df, col_cluster_lables)
+
+        cluster_info = self._generate_cluster_info_content(row_cluster_labels, col_cluster_lables)
+        row_pairplot_content = self._generate_pairplot_content(row_pairplot, output_directory)
+        col_pairplot_content = self._generate_pairplot_content(col_pairplot, output_directory,
+                                                               col=True)
+
+        with open(result_file_path, 'w') as result_file:
+            with open(os.path.join(os.path.dirname(__file__), 'kmeans_report_template.html'),
+                      'r') as report_template_file:
+                report_template = report_template_file.read()
+                report_template = report_template.replace('<p>Cluster_Info</p>',
+                                                          cluster_info)
+                report_template = report_template.replace('<p>Row_Pairplot</p>',
+                                                          row_pairplot_content)
+                report_template = report_template.replace('<p>Column_Pairplot</p>',
+                                                          col_pairplot_content)
+                result_file.write(report_template)
+
+        report_shock_id = self.dfu.file_to_shock({'file_path': output_directory,
+                                                  'pack': 'zip'})['shock_id']
+
+        html_report.append({'shock_id': report_shock_id,
+                            'name': os.path.basename(result_file_path),
+                            'label': os.path.basename(result_file_path),
+                            'description': 'HTML summary report for Cluster App'
+                            })
+        return html_report
+
+    def _generate_kmeans_cluster_report(self, cluster_set_refs, workspace_name,
+                                        data_matrix_df, row_cluster_labels,
+                                        transpose_data_matrix_df, col_cluster_lables):
         """
         _generate_kmeans_cluster_report: generate summary report
         """
@@ -112,6 +255,19 @@ class KmeansClusteringUtil:
         for cluster_set_ref in cluster_set_refs:
             objects_created.append({'ref': cluster_set_ref,
                                     'description': 'Kmeans ClusterSet'})
+
+        output_html_files = self._generate_kmeans_html_report(data_matrix_df,
+                                                              row_cluster_labels,
+                                                              transpose_data_matrix_df,
+                                                              col_cluster_lables)
+
+        report_params = {'message': '',
+                         'workspace_name': workspace_name,
+                         'objects_created': objects_created,
+                         'html_links': output_html_files,
+                         'direct_html_link_index': 0,
+                         'html_window_height': 333,
+                         'report_object_name': 'run_kmeans_cluster_' + str(uuid.uuid4())}
 
         report_params = {'message': '',
                          'objects_created': objects_created,
@@ -128,6 +284,7 @@ class KmeansClusteringUtil:
     def __init__(self, config):
         self.callback_url = config['SDK_CALLBACK_URL']
         self.token = config['KB_AUTH_TOKEN']
+        self.scratch = config['scratch']
 
         # helper kbase module
         self.dfu = DataFileUtil(self.callback_url)
@@ -135,6 +292,7 @@ class KmeansClusteringUtil:
         logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
                             level=logging.INFO)
 
+        plt.switch_backend('agg')
         sys.setrecursionlimit(150000)
 
     def run_kmeans_cluster(self, params):
@@ -180,9 +338,11 @@ class KmeansClusteringUtil:
                                       columns=matrix_data_values['col_ids'])
         transpose_data_matrix_df = data_matrix_df.T
 
-        row_kmeans_clusters = self._build_kmeans_cluster(data_matrix_df, k_num)
+        (row_kmeans_clusters,
+         row_cluster_labels) = self._build_kmeans_cluster(data_matrix_df, k_num)
 
-        col_kmeans_clusters = self._build_kmeans_cluster(transpose_data_matrix_df, k_num)
+        (col_kmeans_clusters,
+         col_cluster_lables) = self._build_kmeans_cluster(transpose_data_matrix_df, k_num)
 
         genome_ref = matrix_data.get('genome_ref')
         clustering_parameters = {'k_num': str(k_num)}
@@ -215,7 +375,11 @@ class KmeansClusteringUtil:
 
         returnVal = {'cluster_set_refs': cluster_set_refs}
 
-        report_output = self._generate_kmeans_cluster_report(cluster_set_refs, workspace_name)
+        report_output = self._generate_kmeans_cluster_report(cluster_set_refs, workspace_name,
+                                                             data_matrix_df,
+                                                             row_cluster_labels,
+                                                             transpose_data_matrix_df,
+                                                             col_cluster_lables)
 
         returnVal.update(report_output)
 

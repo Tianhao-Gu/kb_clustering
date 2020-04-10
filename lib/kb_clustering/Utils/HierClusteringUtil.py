@@ -238,8 +238,8 @@ class HierClusteringUtil:
 
         return cluster_info
 
-    def _generate_dendrogramo_content(self, dendrogram_path, truncated, output_directory,
-                                      col=False):
+    def _generate_dendrogram_content(self, dendrogram_path, truncated, output_directory,
+                                     col=False):
 
         dendrogramo_content = ''''''
 
@@ -280,13 +280,13 @@ class HierClusteringUtil:
 
         cluster_info = self._generate_cluster_info_content(row_flat_cluster, col_flat_cluster)
 
-        row_dendrogramo_content = self._generate_dendrogramo_content(row_dendrogram_path,
-                                                                     row_truncated,
-                                                                     output_directory)
-        col_dendrogramo_content = self._generate_dendrogramo_content(col_dendrogram_path,
-                                                                     col_truncated,
-                                                                     output_directory,
-                                                                     col=True)
+        row_dendrogramo_content = self._generate_dendrogram_content(row_dendrogram_path,
+                                                                    row_truncated,
+                                                                    output_directory)
+        col_dendrogramo_content = self._generate_dendrogram_content(col_dendrogram_path,
+                                                                    col_truncated,
+                                                                    output_directory,
+                                                                    col=True)
 
         with open(result_file_path, 'w') as result_file:
             with open(os.path.join(os.path.dirname(__file__), 'hier_report_template.html'),
