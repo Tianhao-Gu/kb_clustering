@@ -169,6 +169,7 @@ class KmeansClusteringUtil:
             layout = go.Layout(xaxis=go.XAxis(title='Principal Component 1', showline=False),
                                yaxis=go.YAxis(title='Principal Component 2', showline=False))
             fig = go.Figure(data=data, layout=layout)
+            fig.update_layout(legend_title='<b> Cluster </b>')
 
             plot(fig, filename=pacplot_path)
             return pacplot_path
