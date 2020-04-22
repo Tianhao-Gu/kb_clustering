@@ -13,6 +13,8 @@ import scipy.cluster.vq as vq
 from matplotlib import pyplot as plt
 from plotly.offline import plot
 import plotly.express as px
+import plotly.graph_objs as go
+from sklearn.decomposition import PCA
 
 from installed_clients.DataFileUtilClient import DataFileUtil
 from installed_clients.KBaseReportClient import KBaseReport
@@ -127,18 +129,53 @@ class KmeansClusteringUtil:
         return clusters, idx
 
     def _generate_pairplot(self, data_df, cluster_labels):
-        logging.info('start building pairplot')
 
         output_directory = os.path.join(self.scratch, str(uuid.uuid4()))
         self._mkdir_p(output_directory)
 
         col = data_df.columns
-        data_df['cluster'] = [str(cluster_label) for cluster_label in cluster_labels]
 
         if len(col) > 20:
-            return None
+            logging.info('start building PCA plot')
+            pacplot_path = os.path.join(output_directory, 'pcaplot.html')
+            n_components = 2
+            s_values = data_df.values
+            pca = PCA(n_components=n_components, whiten=True)
+            principalComponents = pca.fit_transform(s_values)
 
+            col = list()
+            for i in range(n_components):
+                col.append('principal_component_{}'.format(i+1))
+
+            rotation_matrix_df = pd.DataFrame(data=principalComponents,
+                                              columns=col,
+                                              index=data_df.index)
+            rotation_matrix_df['cluster'] = [str(cluster_label) for cluster_label in cluster_labels]
+
+            traces = list()
+            for name in set(rotation_matrix_df.cluster):
+                trace = go.Scatter(
+                    x=list(rotation_matrix_df.loc[rotation_matrix_df['cluster'].eq(name)]['principal_component_1']),
+                    y=list(rotation_matrix_df.loc[rotation_matrix_df['cluster'].eq(name)]['principal_component_2']),
+                    mode='markers',
+                    name=name,
+                    text=list(rotation_matrix_df.loc[rotation_matrix_df['cluster'].eq(name)].index),
+                    textposition='bottom center',
+                    marker=go.Marker(size=10, opacity=0.8, line=go.Line(color='rgba(217, 217, 217, 0.14)',
+                                                                        width=0.5)))
+                traces.append(trace)
+
+            data = go.Data(traces)
+            layout = go.Layout(xaxis=go.XAxis(title='Principal Component 1', showline=False),
+                               yaxis=go.YAxis(title='Principal Component 2', showline=False))
+            fig = go.Figure(data=data, layout=layout)
+
+            plot(fig, filename=pacplot_path)
+            return pacplot_path
+
+        data_df['cluster'] = [str(cluster_label) for cluster_label in cluster_labels]
         try:
+            logging.info('start building pairplot')
             pairplot_path = os.path.join(output_directory, 'pairplot.html')
             fig = px.scatter_matrix(data_df, dimensions=list(col), color='cluster',
                                     symbol='cluster')
