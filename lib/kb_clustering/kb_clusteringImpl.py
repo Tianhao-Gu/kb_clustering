@@ -22,9 +22,9 @@ class kb_clustering:
     # state. A method could easily clobber the state set by another while
     # the latter method is running.
     ######################################### noqa
-    VERSION = "0.0.1"
+    VERSION = "1.0.0"
     GIT_URL = "https://github.com/Tianhao-Gu/kb_clustering.git"
-    GIT_COMMIT_HASH = "04a8568fa4da03a1b50162f8b2a660293b4801e4"
+    GIT_COMMIT_HASH = "4287f55541853b04c21a5140dd1ce2345d0fb5ab"
 
     #BEGIN_CLASS_HEADER
     #END_CLASS_HEADER
