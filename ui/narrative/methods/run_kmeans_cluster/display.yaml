@@ -28,6 +28,13 @@ parameters :
         Matrix Object
     short-hint : |
         Matrix Object
+  dimension:
+    ui-name: |
+        Perform Cluster Algorithm On
+    short-hint : |
+        Perform analysis on column or row
+    long-hint  : |
+        Perform analysis on column or row
   k_num:
     ui-name : |
         Number Of Clusters To Form

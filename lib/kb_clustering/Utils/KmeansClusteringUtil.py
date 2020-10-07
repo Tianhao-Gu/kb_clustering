@@ -45,7 +45,7 @@ class KmeansClusteringUtil:
         logging.info('start validating run_kmeans_cluster params')
 
         # check for required parameters
-        for p in ['matrix_ref', 'workspace_name', 'cluster_set_name', 'k_num']:
+        for p in ['matrix_ref', 'workspace_id', 'cluster_set_name', 'k_num']:
             if p not in params:
                 raise ValueError('"{}" parameter is required, but missing'.format(p))
 
@@ -63,8 +63,8 @@ class KmeansClusteringUtil:
 
         return clusters_list
 
-    def _build_kmeans_cluster_set(self, clusters, cluster_set_name, genome_ref, matrix_ref,
-                                  conditionset_mapping, conditionset_ref, workspace_name,
+    def _build_kmeans_cluster_set(self, clusters, cluster_set_name, matrix_ref,
+                                  conditionset_mapping, conditionset_ref, workspace_id,
                                   clustering_parameters):
         """
         _build_kmeans_cluster_set: build KBaseExperiments.ClusterSet object
@@ -72,18 +72,12 @@ class KmeansClusteringUtil:
 
         logging.info('start saving KBaseExperiments.ClusterSet object')
 
-        if isinstance(workspace_name, int) or workspace_name.isdigit():
-            workspace_id = workspace_name
-        else:
-            workspace_id = self.dfu.ws_name_to_id(workspace_name)
-
         clusters_list = self._gen_clusters(clusters, conditionset_mapping)
 
         cluster_set_data = {'clusters': clusters_list,
                             'clustering_parameters': clustering_parameters,
                             'original_data': matrix_ref,
-                            'condition_set_ref': conditionset_ref,
-                            'genome_ref': genome_ref}
+                            'condition_set_ref': conditionset_ref}
 
         cluster_set_data = {k: v for k, v in list(cluster_set_data.items()) if v}
 
@@ -200,14 +194,12 @@ class KmeansClusteringUtil:
 
         return pairplot_path
 
-    def _generate_pairplot_content(self, pairplot_path, output_directory,
-                                   col=False):
+    def _generate_pairplot_content(self, pairplot_path, output_directory, dimension):
 
         pairplot_content = ''''''
 
         if pairplot_path:
-            prefix = 'col_' if col else 'row_'
-            pairplot_name = prefix + os.path.basename(pairplot_path)
+            pairplot_name = dimension + '_' + os.path.basename(pairplot_path)
             shutil.copy2(pairplot_path,
                          os.path.join(output_directory, pairplot_name))
 
@@ -226,48 +218,28 @@ class KmeansClusteringUtil:
 
         return pairplot_content
 
-    def _generate_cluster_info_content(self, row_cluster_labels, col_cluster_lables):
+    def _generate_cluster_info_content(self, cluster_labels):
         cluster_info = ''''''
-        cluster_info += '''\n<p>Row Cluster Info</p>
+        cluster_info += '''\n<br><br>
                                 <table style="width:30%">
                                   <tr>
                                     <th>Cluster Index</th>
                                     <th>Size</th>
                                   </tr>\n'''
 
-        unique_labels = list(set(row_cluster_labels))
+        unique_labels = list(set(cluster_labels))
         unique_labels.sort(key=float)
         for index in unique_labels:
             cluster_info += '''\n<tr>
                                     <td>{}</td>
                                     <td>{}</td>
-                            </tr>\n'''.format(index, row_cluster_labels.tolist().count(index))
-
-        cluster_info += '''\n</table>\n'''
-
-        cluster_info += '''\n<br><br>\n'''
-
-        cluster_info += '''\n<p>Column Cluster Info</p>
-                                <table style="width:30%">
-                                  <tr>
-                                    <th>Cluster Index</th>
-                                    <th>Size</th>
-                                  </tr>\n'''
-
-        unique_labels = list(set(col_cluster_lables))
-        unique_labels.sort(key=float)
-        for index in unique_labels:
-            cluster_info += '''\n<tr>
-                                    <td>{}</td>
-                                    <td>{}</td>
-                            </tr>\n'''.format(index, col_cluster_lables.tolist().count(index))
+                            </tr>\n'''.format(index, cluster_labels.tolist().count(index))
 
         cluster_info += '''\n</table>\n'''
 
         return cluster_info
 
-    def _generate_kmeans_html_report(self, data_matrix_df, row_cluster_labels,
-                                     transpose_data_matrix_df, col_cluster_lables):
+    def _generate_kmeans_html_report(self, data_matrix_df, cluster_labels, dimension):
 
         logging.info('start generating html report')
         html_report = list()
@@ -276,13 +248,10 @@ class KmeansClusteringUtil:
         self._mkdir_p(output_directory)
         result_file_path = os.path.join(output_directory, 'hier_report.html')
 
-        row_pairplot = self._generate_pairplot(data_matrix_df, row_cluster_labels)
-        col_pairplot = self._generate_pairplot(transpose_data_matrix_df, col_cluster_lables)
+        pairplot = self._generate_pairplot(data_matrix_df, cluster_labels)
 
-        cluster_info = self._generate_cluster_info_content(row_cluster_labels, col_cluster_lables)
-        row_pairplot_content = self._generate_pairplot_content(row_pairplot, output_directory)
-        col_pairplot_content = self._generate_pairplot_content(col_pairplot, output_directory,
-                                                               col=True)
+        cluster_info = self._generate_cluster_info_content(cluster_labels)
+        pairplot_content = self._generate_pairplot_content(pairplot, output_directory, dimension)
 
         with open(result_file_path, 'w') as result_file:
             with open(os.path.join(os.path.dirname(__file__), 'kmeans_report_template.html'),
@@ -290,10 +259,8 @@ class KmeansClusteringUtil:
                 report_template = report_template_file.read()
                 report_template = report_template.replace('<p>Cluster_Info</p>',
                                                           cluster_info)
-                report_template = report_template.replace('<p>Row_Pairplot</p>',
-                                                          row_pairplot_content)
-                report_template = report_template.replace('<p>Column_Pairplot</p>',
-                                                          col_pairplot_content)
+                report_template = report_template.replace('<p>Pairplot</p>',
+                                                          pairplot_content)
                 result_file.write(report_template)
 
         report_shock_id = self.dfu.file_to_shock({'file_path': output_directory,
@@ -306,24 +273,22 @@ class KmeansClusteringUtil:
                             })
         return html_report
 
-    def _generate_kmeans_cluster_report(self, cluster_set_refs, workspace_name,
-                                        data_matrix_df, row_cluster_labels,
-                                        transpose_data_matrix_df, col_cluster_lables):
+    def _generate_kmeans_cluster_report(self, cluster_set_ref, workspace_id,
+                                        data_matrix_df, cluster_labels, dimension):
         """
         _generate_kmeans_cluster_report: generate summary report
         """
+
         objects_created = []
-        for cluster_set_ref in cluster_set_refs:
-            objects_created.append({'ref': cluster_set_ref,
-                                    'description': 'Kmeans ClusterSet'})
+        objects_created.append({'ref': cluster_set_ref,
+                                'description': 'Kmeans ClusterSet'})
 
         output_html_files = self._generate_kmeans_html_report(data_matrix_df,
-                                                              row_cluster_labels,
-                                                              transpose_data_matrix_df,
-                                                              col_cluster_lables)
+                                                              cluster_labels,
+                                                              dimension)
 
         report_params = {'message': '',
-                         'workspace_name': workspace_name,
+                         'workspace_id': workspace_id,
                          'objects_created': objects_created,
                          'html_links': output_html_files,
                          'direct_html_link_index': 0,
@@ -356,22 +321,23 @@ class KmeansClusteringUtil:
         run_kmeans_cluster: generates Kmeans clusters for Matrix data object
 
         matrix_ref: Matrix object reference
-        workspace_name: the name of the workspace
+        workspace_id: the id of the workspace
         cluster_set_name: KBaseExperiments.ClusterSet object name
+        dimension: run cluster algorithm on dimension, col or row
         k_num: number of clusters to form
 
         Optional arguments:
         dist_metric: The distance metric to use. Default set to 'euclidean'.
-                     The distance function can be
-                     ["braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine",
-                      "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
-                      "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath", "sqeuclidean",
-                      "yule"]
-                     Details refer to:
-                     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
+                   The distance function can be
+                   ["braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine",
+                    "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
+                    "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath", "sqeuclidean",
+                    "yule"]
+                   Details refer to:
+                   https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
 
         return:
-        cluster_set_refs: KBaseExperiments.ClusterSet object references
+        cluster_set_ref: KBaseExperiments.ClusterSet object reference
         report_name: report name generated by KBaseReport
         report_ref: report reference generated by KBaseReport
         """
@@ -382,9 +348,13 @@ class KmeansClusteringUtil:
         self._validate_run_kmeans_cluster_params(params)
 
         matrix_ref = params.get('matrix_ref')
-        workspace_name = params.get('workspace_name')
+        workspace_id = params.get('workspace_id')
         cluster_set_name = params.get('cluster_set_name')
+        dimension = params.get('dimension', 'col')
         k_num = params.get('k_num')
+
+        if dimension not in ['col', 'row']:
+            raise ValueError('Please use "col" or "row" for input dimension')
 
         matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
 
@@ -392,50 +362,29 @@ class KmeansClusteringUtil:
         data_matrix_df = pd.DataFrame(matrix_data_values['values'],
                                       index=matrix_data_values['row_ids'],
                                       columns=matrix_data_values['col_ids'])
-        transpose_data_matrix_df = data_matrix_df.T
+        if dimension == 'col':
+            data_matrix_df = data_matrix_df.T
 
-        (row_kmeans_clusters,
-         row_cluster_labels) = self._build_kmeans_cluster(data_matrix_df, k_num)
+        (kmeans_clusters,
+         cluster_labels) = self._build_kmeans_cluster(data_matrix_df, k_num)
 
-        (col_kmeans_clusters,
-         col_cluster_lables) = self._build_kmeans_cluster(transpose_data_matrix_df, k_num)
+        clustering_parameters = {'dimension': dimension,
+                                 'k_num': str(k_num)}
 
-        genome_ref = matrix_data.get('genome_ref')
-        clustering_parameters = {'k_num': str(k_num)}
+        cluster_set_ref = self._build_kmeans_cluster_set(
+                                        kmeans_clusters,
+                                        cluster_set_name,
+                                        matrix_ref,
+                                        matrix_data.get('{}_mapping'.format(dimension)),
+                                        matrix_data.get('{}_conditionset_ref'.format(dimension)),
+                                        workspace_id,
+                                        clustering_parameters)
 
-        cluster_set_refs = []
+        returnVal = {'cluster_set_ref': cluster_set_ref}
 
-        row_cluster_set_name = cluster_set_name + '_row'
-        row_cluster_set = self._build_kmeans_cluster_set(
-                                                    row_kmeans_clusters,
-                                                    row_cluster_set_name,
-                                                    genome_ref,
-                                                    matrix_ref,
-                                                    matrix_data.get('row_mapping'),
-                                                    matrix_data.get('row_conditionset_ref'),
-                                                    workspace_name,
-                                                    clustering_parameters)
-        cluster_set_refs.append(row_cluster_set)
-
-        col_cluster_set_name = cluster_set_name + '_column'
-        col_cluster_set = self._build_kmeans_cluster_set(
-                                                    col_kmeans_clusters,
-                                                    col_cluster_set_name,
-                                                    genome_ref,
-                                                    matrix_ref,
-                                                    matrix_data.get('col_mapping'),
-                                                    matrix_data.get('col_conditionset_ref'),
-                                                    workspace_name,
-                                                    clustering_parameters)
-        cluster_set_refs.append(col_cluster_set)
-
-        returnVal = {'cluster_set_refs': cluster_set_refs}
-
-        report_output = self._generate_kmeans_cluster_report(cluster_set_refs, workspace_name,
-                                                             data_matrix_df,
-                                                             row_cluster_labels,
-                                                             transpose_data_matrix_df,
-                                                             col_cluster_lables)
+        report_output = self._generate_kmeans_cluster_report(cluster_set_ref, workspace_id,
+                                                             data_matrix_df, cluster_labels,
+                                                             dimension)
 
         returnVal.update(report_output)
 
