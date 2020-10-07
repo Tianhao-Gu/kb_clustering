@@ -13,7 +13,6 @@ from kb_clustering.authclient import KBaseAuth as _KBaseAuth
 from installed_clients.WorkspaceClient import Workspace
 from installed_clients.DataFileUtilClient import DataFileUtil
 from installed_clients.GenericsAPIClient import GenericsAPI
-from installed_clients.GenomeFileUtilClient import GenomeFileUtil
 
 
 class kb_clusteringTest(unittest.TestCase):
@@ -49,9 +48,8 @@ class kb_clusteringTest(unittest.TestCase):
         cls.callback_url = os.environ['SDK_CALLBACK_URL']
         suffix = int(time.time() * 1000)
         cls.wsName = "test_ContigFilter_" + str(suffix)
-        ret = cls.wsClient.create_workspace({'workspace': cls.wsName})  # noqa
-
-        cls.gfu = GenomeFileUtil(cls.callback_url)
+        ret = cls.wsClient.create_workspace({'workspace': cls.wsName})
+        cls.wsId = ret[0]
         cls.dfu = DataFileUtil(cls.callback_url)
         cls.gen_api = GenericsAPI(cls.callback_url, service_ver='dev')
 
@@ -130,7 +128,7 @@ class kb_clusteringTest(unittest.TestCase):
             self.assertEqual(error, str(context.exception.args[0]))
 
     def check_run_cluster_output(self, ret):
-        self.assertTrue('cluster_set_refs' in ret)
+        self.assertTrue('cluster_set_ref' in ret)
         self.assertTrue('report_name' in ret)
         self.assertTrue('report_ref' in ret)
 
@@ -141,7 +139,7 @@ class kb_clusteringTest(unittest.TestCase):
     def test_bad_run_kmeans_cluster_params(self):
         self.start_test()
         invalidate_params = {'missing_matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name',
                              'k_num': 'k_num'}
         error_msg = '"matrix_ref" parameter is required, but missing'
@@ -150,25 +148,25 @@ class kb_clusteringTest(unittest.TestCase):
     def test_bad_run_hierarchical_cluster_params(self):
         self.start_test()
         invalidate_params = {'missing_matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name'}
         error_msg = '"matrix_ref" parameter is required, but missing'
         self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
 
         invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'missing_workspace_name': 'workspace_name',
+                             'missing_workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name'}
-        error_msg = '"workspace_name" parameter is required, but missing'
+        error_msg = '"workspace_id" parameter is required, but missing'
         self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
 
         invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'missing_cluster_set_name': 'cluster_set_name'}
         error_msg = '"cluster_set_name" parameter is required, but missing'
         self.fail_run_hierarchical_cluster(invalidate_params, error_msg)
 
         invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name',
                              'dist_cutoff_rate': 'dist_cutoff_rate',
                              'dist_metric': 'invalidate_metric'}
@@ -176,7 +174,7 @@ class kb_clusteringTest(unittest.TestCase):
         self.fail_run_hierarchical_cluster(invalidate_params, error_msg, contains=True)
 
         invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name',
                              'dist_cutoff_rate': 'dist_cutoff_rate',
                              'linkage_method': 'invalidate_method'}
@@ -184,7 +182,7 @@ class kb_clusteringTest(unittest.TestCase):
         self.fail_run_hierarchical_cluster(invalidate_params, error_msg, contains=True)
 
         invalidate_params = {'matrix_ref': 'matrix_ref',
-                             'workspace_name': 'workspace_name',
+                             'workspace_id': 'workspace_id',
                              'cluster_set_name': 'cluster_set_name',
                              'dist_cutoff_rate': 'dist_cutoff_rate',
                              'fcluster_criterion': 'invalidate_criterion'}
@@ -196,7 +194,7 @@ class kb_clusteringTest(unittest.TestCase):
 
         # test KBaseMatrices.ExpressionMatrix input
         params = {'matrix_ref': self.matrix_obj_ref,
-                  'workspace_name': self.getWsName(),
+                  'workspace_id': self.wsId,
                   'cluster_set_name': 'test_kmeans_cluster',
                   'k_num': 2}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
@@ -204,7 +202,7 @@ class kb_clusteringTest(unittest.TestCase):
 
         # test KBaseFeatureValues.ExpressionMatrix input
         params = {'matrix_ref': self.expression_matrix_ref,
-                  'workspace_name': self.getWsName(),
+                  'workspace_id': self.wsId,
                   'cluster_set_name': 'test_kmeans_cluster',
                   'k_num': 3}
         ret = self.getImpl().run_kmeans_cluster(self.ctx, params)[0]
@@ -215,7 +213,7 @@ class kb_clusteringTest(unittest.TestCase):
 
         # test KBaseMatrices.ExpressionMatrix input
         params = {'matrix_ref': self.matrix_obj_ref,
-                  'workspace_name': self.getWsName(),
+                  'workspace_id': self.wsId,
                   'cluster_set_name': 'test_hierarchical_cluster_1',
                   'dist_metric': 'euclidean',
                   'linkage_method': 'ward',
@@ -225,7 +223,7 @@ class kb_clusteringTest(unittest.TestCase):
 
         # test KBaseFeatureValues.ExpressionMatrix input
         params = {'matrix_ref': self.expression_matrix_ref,
-                  'workspace_name': self.getWsName(),
+                  'workspace_id': self.wsId,
                   'cluster_set_name': 'test_hierarchical_cluster_2',
                   'col_dist_cutoff_rate': 0.6,
                   'row_dist_cutoff_rate': 0.6,

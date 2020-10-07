@@ -54,7 +54,7 @@ class HierClusteringUtil:
         logging.info('start validating run_hierarchical_cluster params')
 
         # check for required parameters
-        for p in ['matrix_ref', 'workspace_name', 'cluster_set_name']:
+        for p in ['matrix_ref', 'workspace_id', 'cluster_set_name']:
             if p not in params:
                 raise ValueError('"{}" parameter is required, but missing'.format(p))
 
@@ -195,40 +195,20 @@ class HierClusteringUtil:
 
         return clusterheatmap_content
 
-    def _generate_cluster_info_content(self, row_flat_cluster, col_flat_cluster):
+    def _generate_cluster_info_content(self, flat_cluster):
 
         cluster_info = ''''''
-        cluster_info += '''\n<p>Row Cluster Info</p>
+        cluster_info += '''\n<br><br>
                                 <table style="width:30%">
                                   <tr>
                                     <th>Cluster Index</th>
                                     <th>Size</th>
                                   </tr>\n'''
 
-        keys = list(row_flat_cluster.keys())
+        keys = list(flat_cluster.keys())
         keys.sort(key=float)
         for index in keys:
-            labels = row_flat_cluster[index]
-            cluster_info += '''\n<tr>
-                                    <td>{}</td>
-                                    <td>{}</td>
-                            </tr>\n'''.format(index, len(labels))
-
-        cluster_info += '''\n</table>\n'''
-
-        cluster_info += '''\n<br><br>\n'''
-
-        cluster_info += '''\n<p>Column Cluster Info</p>
-                                <table style="width:30%">
-                                  <tr>
-                                    <th>Cluster Index</th>
-                                    <th>Size</th>
-                                  </tr>\n'''
-
-        keys = list(col_flat_cluster.keys())
-        keys.sort(key=float)
-        for index in keys:
-            labels = col_flat_cluster[index]
+            labels = flat_cluster[index]
             cluster_info += '''\n<tr>
                                     <td>{}</td>
                                     <td>{}</td>
@@ -239,13 +219,12 @@ class HierClusteringUtil:
         return cluster_info
 
     def _generate_dendrogram_content(self, dendrogram_path, truncated, output_directory,
-                                     col=False):
+                                     dimension):
 
         dendrogramo_content = ''''''
 
         if dendrogram_path:
-            prefix = 'col_' if col else 'row_'
-            dendrogram_name = prefix + os.path.basename(dendrogram_path)
+            dendrogram_name = dimension + '_' + os.path.basename(dendrogram_path)
             shutil.copy2(dendrogram_path,
                          os.path.join(output_directory, dendrogram_name))
 
@@ -269,9 +248,8 @@ class HierClusteringUtil:
 
         return dendrogramo_content
 
-    def _generate_hierarchical_html_report(self, row_flat_cluster, row_dendrogram_path,
-                                           row_truncated, col_flat_cluster, col_dendrogram_path,
-                                           col_truncated):
+    def _generate_hierarchical_html_report(self, flat_cluster, dendrogram_path, truncated,
+                                           dimension):
         """
         _generate_hierarchical_html_report: generate html summary report for hierarchical
                                             clustering app
@@ -284,15 +262,12 @@ class HierClusteringUtil:
         self._mkdir_p(output_directory)
         result_file_path = os.path.join(output_directory, 'hier_report.html')
 
-        cluster_info = self._generate_cluster_info_content(row_flat_cluster, col_flat_cluster)
+        cluster_info = self._generate_cluster_info_content(flat_cluster)
 
-        row_dendrogramo_content = self._generate_dendrogram_content(row_dendrogram_path,
-                                                                    row_truncated,
-                                                                    output_directory)
-        col_dendrogramo_content = self._generate_dendrogram_content(col_dendrogram_path,
-                                                                    col_truncated,
-                                                                    output_directory,
-                                                                    col=True)
+        dendrogramo_content = self._generate_dendrogram_content(dendrogram_path,
+                                                                truncated,
+                                                                output_directory,
+                                                                dimension)
 
         with open(result_file_path, 'w') as result_file:
             with open(os.path.join(os.path.dirname(__file__), 'hier_report_template.html'),
@@ -300,10 +275,8 @@ class HierClusteringUtil:
                 report_template = report_template_file.read()
                 report_template = report_template.replace('<p>Cluster_Info</p>',
                                                           cluster_info)
-                report_template = report_template.replace('<p>Row_Dendrogram</p>',
-                                                          row_dendrogramo_content)
-                report_template = report_template.replace('<p>Column_Dendrogram</p>',
-                                                          col_dendrogramo_content)
+                report_template = report_template.replace('<p>Dendrogram</p>',
+                                                          dendrogramo_content)
                 result_file.write(report_template)
 
         report_shock_id = self.dfu.file_to_shock({'file_path': output_directory,
@@ -316,34 +289,23 @@ class HierClusteringUtil:
                             })
         return html_report
 
-    def _generate_hierarchical_cluster_report(self,  cluster_set_refs, workspace_name,
-                                              row_flat_cluster, row_dendrogram_path, row_truncated,
-                                              col_flat_cluster, col_dendrogram_path, col_truncated,
-                                              plotly_heatmap):
+    def _generate_hierarchical_cluster_report(self,  cluster_set_ref, workspace_id,
+                                              flat_cluster, dendrogram_path, truncated, dimension):
         """
         _generate_hierarchical_cluster_report: generate summary report
         """
 
         objects_created = []
-        for cluster_set_ref in cluster_set_refs:
-            objects_created.append({'ref': cluster_set_ref,
-                                    'description': 'Hierarchical ClusterSet'})
+        objects_created.append({'ref': cluster_set_ref,
+                                'description': 'Hierarchical ClusterSet'})
 
-        # if not plotly_heatmap:
-        #     report_params = {'message': '',
-        #                      'objects_created': objects_created,
-        #                      'workspace_name': workspace_name,
-        #                      'report_object_name': 'run_hierarchical_cluster_' + str(uuid.uuid4())}
-        # else:
-        output_html_files = self._generate_hierarchical_html_report(row_flat_cluster,
-                                                                    row_dendrogram_path,
-                                                                    row_truncated,
-                                                                    col_flat_cluster,
-                                                                    col_dendrogram_path,
-                                                                    col_truncated)
+        output_html_files = self._generate_hierarchical_html_report(flat_cluster,
+                                                                    dendrogram_path,
+                                                                    truncated,
+                                                                    dimension)
 
         report_params = {'message': '',
-                         'workspace_name': workspace_name,
+                         'workspace_id': workspace_id,
                          'objects_created': objects_created,
                          'html_links': output_html_files,
                          'direct_html_link_index': 0,
@@ -377,8 +339,8 @@ class HierClusteringUtil:
 
         return clusters_list
 
-    def _build_hierarchical_cluster_set(self, clusters, cluster_set_name, genome_ref, matrix_ref,
-                                        conditionset_mapping, conditionset_ref, workspace_name,
+    def _build_hierarchical_cluster_set(self, clusters, cluster_set_name, matrix_ref,
+                                        conditionset_mapping, conditionset_ref, workspace_id,
                                         clustering_parameters, data_matrix_df):
 
         """
@@ -387,19 +349,13 @@ class HierClusteringUtil:
 
         logging.info('start saving KBaseExperiments.ClusterSet object')
 
-        if isinstance(workspace_name, int) or workspace_name.isdigit():
-            workspace_id = workspace_name
-        else:
-            workspace_id = self.dfu.ws_name_to_id(workspace_name)
-
         clusters_list = self._gen_hierarchical_clusters(clusters, conditionset_mapping,
                                                         data_matrix_df)
 
         cluster_set_data = {'clusters': clusters_list,
                             'clustering_parameters': clustering_parameters,
                             'original_data': matrix_ref,
-                            'condition_set_ref': conditionset_ref,
-                            'genome_ref': genome_ref}
+                            'condition_set_ref': conditionset_ref}
 
         cluster_set_data = {k: v for k, v in list(cluster_set_data.items()) if v}
 
@@ -587,35 +543,35 @@ class HierClusteringUtil:
         run_hierarchical_cluster: generates hierarchical clusters for Matrix data object
 
         matrix_ref: Matrix object reference
-        workspace_name: the name of the workspace
+        workspace_id: the id of the workspace
         cluster_set_name: KBaseExperiments.ClusterSet object name
+        dimension: run cluster algorithm on dimension, col or row
         dist_cutoff_rate: the threshold to apply when forming flat clusters
 
         Optional arguments:
         dist_metric: The distance metric to use. Default set to 'euclidean'.
-                     The distance function can be
-                     ["braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine",
-                      "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
-                      "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath",
-                      "sqeuclidean", "yule"]
-                     Details refer to:
-                     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
+                   The distance function can be
+                   ["braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine",
+                    "dice", "euclidean", "hamming", "jaccard", "kulsinski", "matching",
+                    "rogerstanimoto", "russellrao", "sokalmichener", "sokalsneath", "sqeuclidean",
+                    "yule"]
+                   Details refer to:
+                   https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html
 
         linkage_method: The linkage algorithm to use. Default set to 'ward'.
-                        The method can be
-                        ["single", "complete", "average", "weighted", "centroid", "median", "ward"]
-                        Details refer to:
-                        https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html
+                      The method can be
+                      ["single", "complete", "average", "weighted", "centroid", "median", "ward"]
+                      Details refer to:
+                      https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html
 
-        fcluster_criterion: The criterion to use in forming flat clusters.
-                            Default set to 'inconsistent'.
-                            The criterion can be
-                            ["inconsistent", "distance", "maxclust"]
-                            Details refer to:
-                            https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.fcluster.html
+        fcluster_criterion: The criterion to use in forming flat clusters. Default set to 'distance'.
+                          The criterion can be
+                          ["inconsistent", "distance", "maxclust"]
+                          Details refer to:
+                          https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.fcluster.html
 
         return:
-        cluster_set_refs: KBaseExperiments.ClusterSet object references
+        cluster_set_ref: KBaseExperiments.ClusterSet object reference
         report_name: report name generated by KBaseReport
         report_ref: report reference generated by KBaseReport
         """
@@ -625,92 +581,65 @@ class HierClusteringUtil:
         self._validate_run_hierarchical_cluster_params(params)
 
         matrix_ref = params.get('matrix_ref')
-        workspace_name = params.get('workspace_name')
+        workspace_id = params.get('workspace_id')
         cluster_set_name = params.get('cluster_set_name')
-        row_dist_cutoff_rate = float(params.get('row_dist_cutoff_rate', 0.5))
-        col_dist_cutoff_rate = float(params.get('col_dist_cutoff_rate', 0.5))
+        dimension = params.get('dimension', 'col')
+        dist_cutoff_rate = float(params.get('dist_cutoff_rate', 0.5))
+
         dist_metric = params.get('dist_metric', 'euclidean')
         linkage_method = params.get('linkage_method', 'ward')
         fcluster_criterion = params.get('fcluster_criterion', 'inconsistent')
 
-        matrix_data = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]['data']
+        input_obj = self.dfu.get_objects({'object_refs': [matrix_ref]})['data'][0]
+        input_obj_data = input_obj['data']
 
-        matrix_data_values = matrix_data['data']
+        if dimension not in ['col', 'row']:
+            raise ValueError('Please use "col" or "row" for input dimension')
+
+        # if "KBaseMatrices" not in obj_type and 'KBaseProfile' not in obj_type:
+        #     err_msg = 'Ooops! [{}] is not supported.\n'.format(obj_type)
+        #     err_msg += 'Please supply KBaseMatrices or KBaseProfile object'
+        #     raise ValueError(err_msg)
+
+        matrix_data_values = input_obj_data['data']
         data_matrix_df = pd.DataFrame(matrix_data_values['values'],
                                       index=matrix_data_values['row_ids'],
                                       columns=matrix_data_values['col_ids'])
-        transpose_data_matrix_df = data_matrix_df.T
 
-        (row_flat_cluster,
-         row_dendrogram_path,
-         row_truncated) = self._build_flat_cluster(data_matrix_df,
-                                                   row_dist_cutoff_rate,
-                                                   dist_metric=dist_metric,
-                                                   linkage_method=linkage_method,
-                                                   fcluster_criterion=fcluster_criterion)
+        if dimension == 'col':
+            data_matrix_df = data_matrix_df.T
 
-        (col_flat_cluster,
-         col_dendrogram_path,
-         col_truncated) = self._build_flat_cluster(transpose_data_matrix_df,
-                                                   col_dist_cutoff_rate,
-                                                   dist_metric=dist_metric,
-                                                   linkage_method=linkage_method,
-                                                   fcluster_criterion=fcluster_criterion)
+        (flat_cluster,
+         dendrogram_path,
+         truncated) = self._build_flat_cluster(data_matrix_df,
+                                               dist_cutoff_rate,
+                                               dist_metric=dist_metric,
+                                               linkage_method=linkage_method,
+                                               fcluster_criterion=fcluster_criterion)
 
-        genome_ref = matrix_data.get('genome_ref')
-
-        clustering_parameters = {'col_dist_cutoff_rate': str(col_dist_cutoff_rate),
-                                 'row_dist_cutoff_rate': str(row_dist_cutoff_rate),
+        clustering_parameters = {'dimension': dimension,
+                                 'dist_cutoff_rate': str(dist_cutoff_rate),
                                  'dist_metric': dist_metric,
                                  'linkage_method': linkage_method,
                                  'fcluster_criterion': fcluster_criterion}
 
-        cluster_set_refs = []
+        cluster_set_ref = self._build_hierarchical_cluster_set(
+                                    flat_cluster,
+                                    cluster_set_name,
+                                    matrix_ref,
+                                    input_obj_data.get('{}_mapping'.format(dimension)),
+                                    input_obj_data.get('{}_conditionset_ref'.format(dimension)),
+                                    workspace_id,
+                                    clustering_parameters,
+                                    data_matrix_df)
+        returnVal = {'cluster_set_ref': cluster_set_ref}
 
-        row_cluster_set_name = cluster_set_name + '_row'
-        row_cluster_set = self._build_hierarchical_cluster_set(
-                                                    row_flat_cluster,
-                                                    row_cluster_set_name,
-                                                    genome_ref,
-                                                    matrix_ref,
-                                                    matrix_data.get('row_mapping'),
-                                                    matrix_data.get('row_conditionset_ref'),
-                                                    workspace_name,
-                                                    clustering_parameters,
-                                                    data_matrix_df)
-        cluster_set_refs.append(row_cluster_set)
-
-        col_cluster_set_name = cluster_set_name + '_column'
-        col_cluster_set = self._build_hierarchical_cluster_set(
-                                                    col_flat_cluster,
-                                                    col_cluster_set_name,
-                                                    genome_ref,
-                                                    matrix_ref,
-                                                    matrix_data.get('col_mapping'),
-                                                    matrix_data.get('col_conditionset_ref'),
-                                                    workspace_name,
-                                                    clustering_parameters,
-                                                    transpose_data_matrix_df)
-        cluster_set_refs.append(col_cluster_set)
-
-        returnVal = {'cluster_set_refs': cluster_set_refs}
-
-        # try:
-        #     plotly_heatmap = self._build_plotly_clustermap(data_matrix_df, dist_metric, linkage_method)
-        # except Exception:
-        #     plotly_heatmap = None
-
-        plotly_heatmap = None
-
-        report_output = self._generate_hierarchical_cluster_report(cluster_set_refs,
-                                                                   workspace_name,
-                                                                   row_flat_cluster,
-                                                                   row_dendrogram_path,
-                                                                   row_truncated,
-                                                                   col_flat_cluster,
-                                                                   col_dendrogram_path,
-                                                                   col_truncated,
-                                                                   plotly_heatmap)
+        report_output = self._generate_hierarchical_cluster_report(cluster_set_ref,
+                                                                   workspace_id,
+                                                                   flat_cluster,
+                                                                   dendrogram_path,
+                                                                   truncated,
+                                                                   dimension)
         returnVal.update(report_output)
 
         return returnVal

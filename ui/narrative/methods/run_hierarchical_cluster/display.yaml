@@ -28,21 +28,23 @@ parameters :
         Matrix Object
     short-hint : |
         Matrix Object
-  row_dist_cutoff_rate:
+  dimension:
+    ui-name: |
+        Perform Cluster Algorithm On
+    short-hint : |
+        Perform analysis on column or row
+    long-hint  : |
+        Perform analysis on column or row
+  dist_cutoff_rate:
     ui-name : |
-        Row Height Cutoff Ratio
+        Cluster Height Cutoff Ratio
     short-hint: |
-        Row Height Cutoff Ratio
-  col_dist_cutoff_rate:
-    ui-name : |
-        Column Height Cutoff Ratio
-    short-hint: |
-        Column Height Cutoff Ratio
+        Cluster Height Cutoff Ratio
   cluster_set_name :
     ui-name : |
-        ClusterSet Object Name
+        Cluster Object Name
     short-hint : |
-        ClusterSet Object Name
+        Cluster Object Name
   dist_metric :
     ui-name : |
         Distance Metric
