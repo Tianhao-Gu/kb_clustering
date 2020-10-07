@@ -596,11 +596,6 @@ class HierClusteringUtil:
         if dimension not in ['col', 'row']:
             raise ValueError('Please use "col" or "row" for input dimension')
 
-        # if "KBaseMatrices" not in obj_type and 'KBaseProfile' not in obj_type:
-        #     err_msg = 'Ooops! [{}] is not supported.\n'.format(obj_type)
-        #     err_msg += 'Please supply KBaseMatrices or KBaseProfile object'
-        #     raise ValueError(err_msg)
-
         matrix_data_values = input_obj_data['data']
         data_matrix_df = pd.DataFrame(matrix_data_values['values'],
                                       index=matrix_data_values['row_ids'],

@@ -16,7 +16,7 @@
     "default_values" : [ "" ],
     "field_type" : "text",
     "text_options" : {
-      "valid_ws_types" : ["KBaseFeatureValues.ExpressionMatrix", "KBaseMatrices"]
+      "valid_ws_types" : ["KBaseFeatureValues.ExpressionMatrix", "KBaseMatrices", "KBaseProfile.FunctionalProfile"]
     }
   },{
     "id" : "dimension",
