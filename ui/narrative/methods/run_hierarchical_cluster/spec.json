@@ -19,19 +19,28 @@
       "valid_ws_types" : ["KBaseFeatureValues.ExpressionMatrix", "KBaseMatrices"]
     }
   },{
-   "id" : "row_dist_cutoff_rate",
+    "id" : "dimension",
     "optional" : false,
     "advanced" : false,
     "allow_multiple" : false,
-    "default_values" : [ "0.6" ],
-    "field_type" : "text",
-    "text_options" : {
-        "validate_as": "float",
-        "min_float" : 0.0,
-        "max_float" : 1.0
+    "default_values" : ["col"],
+    "field_type" : "dropdown",
+    "dropdown_options":
+    {
+      "options":
+      [
+        {
+            "display": "Column",
+            "value": "col"
+        },
+        {
+            "display": "Row",
+            "value": "row"
+        }
+      ]
     }
   },{
-   "id" : "col_dist_cutoff_rate",
+    "id" : "dist_cutoff_rate",
     "optional" : false,
     "advanced" : false,
     "allow_multiple" : false,
@@ -178,8 +187,8 @@
       "method" : "run_hierarchical_cluster",
       "input_mapping" : [
         {
-          "narrative_system_variable": "workspace",
-          "target_property" : "workspace_name"
+          "narrative_system_variable": "workspace_id",
+          "target_property": "workspace_id"
         },
         {
           "input_parameter" : "matrix_ref",
@@ -187,12 +196,12 @@
           "target_property" : "matrix_ref"
         },
         {
-            "input_parameter" : "col_dist_cutoff_rate",
-            "target_property" : "col_dist_cutoff_rate"
+            "input_parameter" : "dimension",
+            "target_property" : "dimension"
         },
         {
-            "input_parameter" : "row_dist_cutoff_rate",
-            "target_property" : "row_dist_cutoff_rate"
+            "input_parameter" : "dist_cutoff_rate",
+            "target_property" : "dist_cutoff_rate"
         },
         {
             "input_parameter" : "cluster_set_name",
